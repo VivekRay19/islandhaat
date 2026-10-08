@@ -8,52 +8,62 @@ export class DayNightSystem {
   public hemiLight: THREE.HemisphereLight;
   public ambientLight: THREE.AmbientLight;
   public starsGroup: THREE.Points;
+  public moonMesh: THREE.Mesh;
 
-  public timeOfDay: number = 0.25; // 0.0 = midnight, 0.25 = sunrise/dawn, 0.5 = midday, 0.75 = sunset/dusk
+  public timeOfDay: number = 0.38; // Starts in bright sunny day
   public isFrozen: boolean = false;
-  public dayDuration: number = 180; // 3 minutes per full cycle
+  public dayDuration: number = 240; // 4 minutes full cycle
 
   private scene: THREE.Scene;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
 
-    // Ambient / Hemisphere lights
-    this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-    this.hemiLight.position.set(0, 50, 0);
+    // 1. Hemisphere Light (Sky & Ground bounce)
+    this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x334155, 0.75);
+    this.hemiLight.position.set(0, 40, 0);
     scene.add(this.hemiLight);
 
-    this.ambientLight = new THREE.AmbientLight(0xffeedd, 0.25);
+    // 2. Ambient Light (Warm baseline fill)
+    this.ambientLight = new THREE.AmbientLight(0xffeedd, 0.35);
     scene.add(this.ambientLight);
 
-    // Main Directional Sun/Moon Light with soft shadow mapping
-    this.sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+    // 3. Directional Sun/Moon Light with Soft Cascaded Shadows
+    this.sunLight = new THREE.DirectionalLight(0xfff7ed, 1.4);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048;
     this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 40;
-    this.sunLight.shadow.camera.left = -12;
-    this.sunLight.shadow.camera.right = 12;
-    this.sunLight.shadow.camera.top = 12;
-    this.sunLight.shadow.camera.bottom = -12;
-    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.camera.far = 60;
+    this.sunLight.shadow.camera.left = -16;
+    this.sunLight.shadow.camera.right = 16;
+    this.sunLight.shadow.camera.top = 16;
+    this.sunLight.shadow.camera.bottom = -16;
+    this.sunLight.shadow.bias = -0.0004;
     scene.add(this.sunLight);
 
-    // Starfield for night sky
+    // 4. Glowing Night Moon Disc
+    const moonGeo = new THREE.DodecahedronGeometry(1.4, 2);
+    const moonMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+    this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    this.moonMesh.position.set(22, 26, -20);
+    this.moonMesh.visible = false;
+    scene.add(this.moonMesh);
+
+    // 5. Starfield for Night Sky
     const starsGeo = new THREE.BufferGeometry();
-    const starCount = 350;
+    const starCount = 450;
     const starPos = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount; i++) {
-      const radius = 35 + Math.random() * 15;
+      const radius = 45 + Math.random() * 20;
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 0.8 + 0.1); // upper hemisphere
+      const phi = Math.acos(Math.random() * 0.85 + 0.05);
       starPos[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
       starPos[i * 3 + 1] = radius * Math.cos(phi);
       starPos[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
     }
     starsGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.25, transparent: true, opacity: 0 });
+    const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.28, transparent: true, opacity: 0 });
     this.starsGroup = new THREE.Points(starsGeo, starsMat);
     scene.add(this.starsGroup);
   }
@@ -103,57 +113,59 @@ export class DayNightSystem {
 
     const t = this.timeOfDay;
     const angle = t * Math.PI * 2 - Math.PI / 2;
-    const dist = 18;
+    const dist = 24;
 
-    // Orbit Sun/Moon
-    this.sunLight.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist, 8);
+    // Orbit Sun
+    this.sunLight.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist, 10);
     this.sunLight.lookAt(0, 0, 0);
 
-    // Interpolate Sky / Lighting colors
     let skyColor: THREE.Color;
     let groundColor: THREE.Color;
     let sunColor: THREE.Color;
     let sunIntensity: number;
     let starsOpacity: number;
+    let showMoon: boolean = false;
 
     if (t >= 0.2 && t < 0.35) {
-      // Dawn
+      // Dawn (Soft peach & rose gold)
       const k = (t - 0.2) / 0.15;
-      skyColor = new THREE.Color(0x2a284e).lerp(new THREE.Color(0x89c5f0), k);
-      groundColor = new THREE.Color(0x3a483a);
-      sunColor = new THREE.Color(0xffaa55).lerp(new THREE.Color(0xfff0dd), k);
-      sunIntensity = lerp(0.3, 1.2, k);
+      skyColor = new THREE.Color(0x312e81).lerp(new THREE.Color(0x7dd3fc), k);
+      groundColor = new THREE.Color(0x1e293b).lerp(new THREE.Color(0x365314), k);
+      sunColor = new THREE.Color(0xfb923c).lerp(new THREE.Color(0xfff7ed), k);
+      sunIntensity = lerp(0.4, 1.4, k);
       starsOpacity = lerp(0.8, 0.0, k);
     } else if (t >= 0.35 && t < 0.65) {
-      // Day
-      skyColor = new THREE.Color(0x89c5f0);
-      groundColor = new THREE.Color(0x507548);
-      sunColor = new THREE.Color(0xfffdf5);
-      sunIntensity = 1.35;
+      // Bright Sunny Day (Vibrant azure sky & warm sunlight)
+      skyColor = new THREE.Color(0x38bdf8);
+      groundColor = new THREE.Color(0x4d7c0f);
+      sunColor = new THREE.Color(0xffffff);
+      sunIntensity = 1.45;
       starsOpacity = 0.0;
     } else if (t >= 0.65 && t < 0.78) {
-      // Afternoon
+      // Golden Afternoon
       const k = (t - 0.65) / 0.13;
-      skyColor = new THREE.Color(0x89c5f0).lerp(new THREE.Color(0xf69d62), k);
-      groundColor = new THREE.Color(0x507548).lerp(new THREE.Color(0x405538), k);
-      sunColor = new THREE.Color(0xfffdf5).lerp(new THREE.Color(0xffb74d), k);
-      sunIntensity = lerp(1.35, 1.0, k);
+      skyColor = new THREE.Color(0x38bdf8).lerp(new THREE.Color(0xfb923c), k);
+      groundColor = new THREE.Color(0x4d7c0f).lerp(new THREE.Color(0x78350f), k);
+      sunColor = new THREE.Color(0xffffff).lerp(new THREE.Color(0xf59e0b), k);
+      sunIntensity = lerp(1.45, 1.15, k);
       starsOpacity = 0.0;
     } else if (t >= 0.78 && t < 0.88) {
-      // Dusk
+      // Dusk / Twilight Sunset
       const k = (t - 0.78) / 0.1;
-      skyColor = new THREE.Color(0xf69d62).lerp(new THREE.Color(0x1a1c38), k);
-      groundColor = new THREE.Color(0x405538).lerp(new THREE.Color(0x1c281e), k);
-      sunColor = new THREE.Color(0xff7043).lerp(new THREE.Color(0x90caf9), k);
-      sunIntensity = lerp(1.0, 0.35, k);
+      skyColor = new THREE.Color(0xfb923c).lerp(new THREE.Color(0x1e1b4b), k);
+      groundColor = new THREE.Color(0x78350f).lerp(new THREE.Color(0x0f172a), k);
+      sunColor = new THREE.Color(0xf97316).lerp(new THREE.Color(0xa5b4fc), k);
+      sunIntensity = lerp(1.15, 0.45, k);
       starsOpacity = lerp(0.0, 0.9, k);
+      showMoon = true;
     } else {
-      // Night
-      skyColor = new THREE.Color(0x0e1124);
-      groundColor = new THREE.Color(0x141824);
-      sunColor = new THREE.Color(0x9fa8da); // cool moonlight
-      sunIntensity = 0.35;
+      // Deep Starry Night (Deep indigo sky with glowing moonlight)
+      skyColor = new THREE.Color(0x0f172a);
+      groundColor = new THREE.Color(0x020617);
+      sunColor = new THREE.Color(0x93c5fd); // Moonlit beam
+      sunIntensity = 0.42;
       starsOpacity = 0.95;
+      showMoon = true;
     }
 
     this.scene.background = skyColor;
@@ -167,5 +179,6 @@ export class DayNightSystem {
     this.sunLight.intensity = sunIntensity;
 
     (this.starsGroup.material as THREE.PointsMaterial).opacity = starsOpacity;
+    this.moonMesh.visible = showMoon;
   }
 }

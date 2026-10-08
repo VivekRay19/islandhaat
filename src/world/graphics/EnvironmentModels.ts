@@ -5,252 +5,578 @@ import { LandmarkKind } from '../data/tileLibrary';
 export class EnvironmentModels {
   private static mats = Materials.get();
 
-  /** Creates a low-poly tree with randomized scale & foliage type */
-  public static createTree(variant: 'pine' | 'round' | 'banyan' | 'blossom' = 'round', seed = 0): THREE.Group {
+  // =========================================================================
+  // 1. HIGH-QUALITY STYLIZED 3D TREE LIBRARY
+  // =========================================================================
+
+  /** Creates a rich stylized tree with organic branching and layered foliage */
+  public static createTree(variant: 'pine' | 'round' | 'banyan' | 'blossom' | 'palm' = 'round', seed = 0): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Trunk
-    const trunkGeo = new THREE.CylinderGeometry(0.04, 0.07, 0.35, 6);
-    const trunkMat = mats.wood;
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.y = 0.175;
+    if (variant === 'palm') {
+      return this.createPalmTree(seed);
+    }
+
+    // Organic tapered Trunk
+    const trunkGeo = new THREE.CylinderGeometry(0.045, 0.08, 0.42, 8);
+    const trunk = new THREE.Mesh(trunkGeo, mats.wood);
+    trunk.position.y = 0.21;
+    trunk.rotation.z = (Math.sin(seed) * 0.08);
     trunk.castShadow = true;
     trunk.receiveShadow = true;
     group.add(trunk);
 
+    // Root flares
+    for (let i = 0; i < 3; i++) {
+      const ang = (i * Math.PI * 2) / 3 + seed;
+      const root = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 4), mats.wood);
+      root.position.set(Math.cos(ang) * 0.06, 0.04, Math.sin(ang) * 0.06);
+      root.rotation.x = Math.sin(ang) * 0.4;
+      root.rotation.z = Math.cos(ang) * 0.4;
+      root.castShadow = true;
+      group.add(root);
+    }
+
     if (variant === 'pine') {
-      // 3 Tier cone pine
-      const tier1 = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.3, 6), mats.treeFoliageA);
-      tier1.position.y = 0.32;
-      tier1.castShadow = true;
-      group.add(tier1);
-
-      const tier2 = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.25, 6), mats.treeFoliageB);
-      tier2.position.y = 0.46;
-      tier2.castShadow = true;
-      group.add(tier2);
-
-      const tier3 = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.2, 6), mats.treeFoliageC);
-      tier3.position.y = 0.58;
-      tier3.castShadow = true;
-      group.add(tier3);
-    } else if (variant === 'round') {
-      // Rounded icosahedron canopy
-      const canopyGeo = new THREE.DodecahedronGeometry(0.22, 1);
-      const canopy = new THREE.Mesh(canopyGeo, mats.treeFoliageB);
-      canopy.position.y = 0.42;
-      canopy.scale.set(1, 1.15, 1);
-      canopy.castShadow = true;
-      group.add(canopy);
+      // 3-Tier Layered Soft Pine / Cypress
+      const tiers = [
+        { y: 0.32, r: 0.26, h: 0.28, mat: mats.treeFoliageC },
+        { y: 0.48, r: 0.21, h: 0.24, mat: mats.treeFoliageB },
+        { y: 0.62, r: 0.15, h: 0.20, mat: mats.treeFoliageA }
+      ];
+      tiers.forEach((t) => {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(t.r, t.h, 7), t.mat);
+        cone.position.y = t.y;
+        cone.castShadow = true;
+        cone.receiveShadow = true;
+        group.add(cone);
+      });
     } else if (variant === 'blossom') {
-      // Pink blossoming fruit tree
-      const canopyGeo = new THREE.DodecahedronGeometry(0.2, 1);
-      const canopy = new THREE.Mesh(canopyGeo, mats.fabricPink);
-      canopy.position.y = 0.4;
-      canopy.castShadow = true;
-      group.add(canopy);
+      // Lush Pink Blossom Tree with multi-cluster crown
+      const clusters = [
+        { x: 0, y: 0.44, z: 0, s: 0.24 },
+        { x: -0.12, y: 0.38, z: 0.08, s: 0.18 },
+        { x: 0.11, y: 0.40, z: -0.06, s: 0.19 },
+        { x: 0.04, y: 0.52, z: 0.05, s: 0.16 }
+      ];
+      clusters.forEach((c) => {
+        const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(c.s, 1), mats.blossomPink);
+        mesh.position.set(c.x, c.y, c.z);
+        mesh.castShadow = true;
+        group.add(mesh);
+      });
     } else if (variant === 'banyan') {
-      // Banyan with wide canopy
-      const wideCanopy = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 1), mats.treeFoliageA);
-      wideCanopy.position.y = 0.45;
-      wideCanopy.scale.set(1.4, 0.8, 1.4);
-      wideCanopy.castShadow = true;
-      group.add(wideCanopy);
+      // Sprawling Tropical Banyan with aerial roots
+      const mainCrown = new THREE.Mesh(new THREE.DodecahedronGeometry(0.36, 1), mats.treeFoliageA);
+      mainCrown.position.y = 0.46;
+      mainCrown.scale.set(1.4, 0.75, 1.3);
+      mainCrown.castShadow = true;
+      group.add(mainCrown);
 
-      // Aerial roots
-      for (let i = 0; i < 3; i++) {
-        const root = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.35, 4), mats.darkWood);
-        const ang = (i * Math.PI * 2) / 3;
-        root.position.set(Math.cos(ang) * 0.18, 0.175, Math.sin(ang) * 0.18);
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI * 2) / 4 + 0.3;
+        const root = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.4, 5), mats.darkWood);
+        root.position.set(Math.cos(a) * 0.22, 0.2, Math.sin(a) * 0.22);
         root.castShadow = true;
         group.add(root);
       }
+    } else {
+      // Rich Deciduous Oak (Multi-layer foliage clusters)
+      const clusters = [
+        { x: 0, y: 0.44, z: 0, r: 0.25, mat: mats.treeFoliageB },
+        { x: -0.11, y: 0.38, z: 0.09, r: 0.18, mat: mats.treeFoliageA },
+        { x: 0.12, y: 0.40, z: -0.07, r: 0.19, mat: mats.treeFoliageC },
+        { x: -0.06, y: 0.48, z: -0.08, r: 0.17, mat: mats.treeFoliageB },
+        { x: 0.05, y: 0.54, z: 0.04, r: 0.16, mat: mats.treeFoliageA }
+      ];
+      clusters.forEach((c) => {
+        const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(c.r, 1), c.mat);
+        mesh.position.set(c.x, c.y, c.z);
+        mesh.scale.set(1.05, 0.95, 1.05);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      });
     }
 
-    const s = 0.85 + (seed % 30) * 0.01;
+    const s = 0.88 + (seed % 20) * 0.012;
     group.scale.set(s, s, s);
     return group;
   }
 
-  /** Creates Farmhouse with thatched roof, crops, and fence */
-  public static createFarm(): THREE.Group {
+  /** Creates Tropical Coconut Palm with curved trunk and radial fronds */
+  public static createPalmTree(seed = 0): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Main cottage base
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.25, 0.32), mats.whitePlaster);
-    base.position.set(-0.1, 0.125, 0);
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
+    // Curved Trunk with ring segments
+    const segments = 5;
+    const segHeight = 0.09;
+    let currX = 0;
+    let currY = 0;
+    const curveDir = Math.sin(seed) * 0.035;
 
-    // Thatched gabled roof
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.24, 4), mats.thatch);
-    roof.position.set(-0.1, 0.35, 0);
-    roof.rotation.y = Math.PI / 4;
-    roof.scale.set(1.3, 1, 1.1);
-    roof.castShadow = true;
-    group.add(roof);
+    for (let i = 0; i < segments; i++) {
+      const nextX = currX + curveDir * (i + 1);
+      const nextY = currY + segHeight;
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.04 - i * 0.003, 0.045 - i * 0.003, segHeight, 6), mats.wood);
+      seg.position.set((currX + nextX) / 2, (currY + nextY) / 2, 0);
+      seg.rotation.z = -curveDir * 3;
+      seg.castShadow = true;
+      group.add(seg);
+      currX = nextX;
+      currY = nextY;
+    }
 
-    // Wooden door
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.02), mats.wood);
-    door.position.set(-0.1, 0.07, 0.165);
-    group.add(door);
+    // Top Fronds
+    const frondCount = 6;
+    for (let f = 0; f < frondCount; f++) {
+      const a = (f * Math.PI * 2) / frondCount;
+      const frond = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.36), mats.palmFrond);
+      frond.position.set(currX + Math.cos(a) * 0.12, currY + 0.02, Math.sin(a) * 0.12);
+      frond.rotation.y = -a;
+      frond.rotation.x = Math.PI / 3;
+      frond.castShadow = true;
+      group.add(frond);
+    }
 
-    // Hay bale
-    const hay = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 8), mats.field);
-    hay.rotation.z = Math.PI / 2;
-    hay.position.set(0.2, 0.06, -0.15);
-    hay.castShadow = true;
-    group.add(hay);
-
-    // Wheat crop patches
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 3; c++) {
-        const stalk = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.16, 5), mats.field);
-        stalk.position.set(0.1 + c * 0.1, 0.08, 0.05 + r * 0.1);
-        stalk.castShadow = true;
-        group.add(stalk);
-      }
+    // Coconuts
+    for (let c = 0; c < 3; c++) {
+      const ca = (c * Math.PI * 2) / 3;
+      const nut = new THREE.Mesh(new THREE.DodecahedronGeometry(0.03, 0), mats.darkWood);
+      nut.position.set(currX + Math.cos(ca) * 0.04, currY - 0.02, Math.sin(ca) * 0.04);
+      group.add(nut);
     }
 
     return group;
   }
 
-  /** Creates Village Houses */
+  // =========================================================================
+  // 2. PRODUCTION QUALITY BUILDINGS & WORKSHOPS
+  // =========================================================================
+
+  /**
+   * Creates Detailed Production-Quality Farmhouse
+   * Includes stone base, plaster walls, wooden beams, terracotta roof,
+   * chimney + smoke, glowing windows, crop field with furrow rows, and fence.
+   */
+  public static createFarm(): THREE.Group {
+    const mats = this.mats;
+    const group = new THREE.Group();
+
+    // 1. Stone Foundation Plinth
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.44), mats.stone);
+    plinth.position.set(-0.12, 0.04, -0.05);
+    plinth.receiveShadow = true;
+    plinth.castShadow = true;
+    group.add(plinth);
+
+    // 2. Main Cottage Walls (Plaster + Corner Timber Beams)
+    const cottage = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.38), mats.whitePlaster);
+    cottage.position.set(-0.12, 0.22, -0.05);
+    cottage.castShadow = true;
+    cottage.receiveShadow = true;
+    group.add(cottage);
+
+    // Timber corner posts
+    const beamOffsets = [
+      { x: -0.34, z: -0.23 }, { x: 0.10, z: -0.23 },
+      { x: -0.34, z: 0.13 }, { x: 0.10, z: 0.13 }
+    ];
+    beamOffsets.forEach((b) => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.04), mats.darkWood);
+      beam.position.set(b.x, 0.22, b.z);
+      beam.castShadow = true;
+      group.add(beam);
+    });
+
+    // 3. Multi-Pitched Terracotta Roof
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.26, 4), mats.terracotta);
+    roof.position.set(-0.12, 0.48, -0.05);
+    roof.rotation.y = Math.PI / 4;
+    roof.scale.set(1.35, 1, 1.15);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // 4. Chimney with Brick Strata & Smoke Puff
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), mats.terracotta);
+    chimney.position.set(0.04, 0.52, -0.12);
+    chimney.castShadow = true;
+    group.add(chimney);
+
+    const smokePuff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.06, 1), mats.smoke);
+    smokePuff.position.set(0.04, 0.70, -0.12);
+    group.add(smokePuff);
+
+    // 5. Wooden Front Door & Windows with Interior Warm Light
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.16, 0.02), mats.wood);
+    door.position.set(-0.12, 0.16, 0.145);
+    group.add(door);
+
+    const win1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), mats.windowGlow);
+    win1.position.set(-0.25, 0.24, 0.145);
+    group.add(win1);
+
+    const win2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), mats.windowGlow);
+    win2.position.set(0.02, 0.24, 0.145);
+    group.add(win2);
+
+    // 6. Farm Field with Furrow Crop Rows (Golden Wheat)
+    const fieldPlinth = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.04, 0.52), mats.field);
+    fieldPlinth.position.set(0.24, 0.02, 0.12);
+    fieldPlinth.receiveShadow = true;
+    group.add(fieldPlinth);
+
+    // 3 Rows of swaying wheat crops
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 4; col++) {
+        const crop = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.14, 5), mats.field);
+        crop.position.set(0.08 + col * 0.11, 0.09, -0.06 + row * 0.16);
+        crop.rotation.z = (Math.random() - 0.5) * 0.2;
+        crop.castShadow = true;
+        group.add(crop);
+      }
+    }
+
+    // 7. Hay Bales & Wooden Barrel Props
+    const hayBale = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.14, 8), mats.field);
+    hayBale.rotation.z = Math.PI / 2;
+    hayBale.position.set(-0.32, 0.08, 0.22);
+    hayBale.castShadow = true;
+    group.add(hayBale);
+
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.12, 6), mats.wood);
+    barrel.position.set(0.05, 0.06, 0.22);
+    barrel.castShadow = true;
+    group.add(barrel);
+
+    // 8. Wooden Split-Rail Fence
+    const fencePosts = [
+      { x: 0.02, z: 0.38 }, { x: 0.24, z: 0.38 }, { x: 0.46, z: 0.38 }
+    ];
+    fencePosts.forEach((fp) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.16, 4), mats.wood);
+      p.position.set(fp.x, 0.08, fp.z);
+      p.castShadow = true;
+      group.add(p);
+    });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.02, 0.02), mats.wood);
+    rail.position.set(0.24, 0.12, 0.38);
+    group.add(rail);
+
+    return group;
+  }
+
+  /**
+   * Creates Village Houses with Multi-Tier Terracotta Roofs and Stone Well
+   */
   public static createHouses(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // House 1
-    const h1 = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.28), mats.whitePlaster);
-    h1.position.set(-0.15, 0.12, -0.1);
-    h1.castShadow = true;
-    group.add(h1);
+    // House 1 (Main Village Villa)
+    const h1Base = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.36), mats.whitePlaster);
+    h1Base.position.set(-0.16, 0.14, -0.1);
+    h1Base.castShadow = true;
+    h1Base.receiveShadow = true;
+    group.add(h1Base);
 
-    const roof1 = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.2, 4), mats.terracotta);
-    roof1.position.set(-0.15, 0.32, -0.1);
-    roof1.rotation.y = Math.PI / 4;
-    roof1.scale.set(1.2, 1, 1.1);
-    roof1.castShadow = true;
-    group.add(roof1);
+    const h1Roof = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.24, 4), mats.terracotta);
+    h1Roof.position.set(-0.16, 0.38, -0.1);
+    h1Roof.rotation.y = Math.PI / 4;
+    h1Roof.scale.set(1.3, 1, 1.15);
+    h1Roof.castShadow = true;
+    group.add(h1Roof);
 
-    // House 2
-    const h2 = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.24), mats.whitePlaster);
-    h2.position.set(0.18, 0.1, 0.12);
-    h2.castShadow = true;
-    group.add(h2);
+    // Window glows
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), mats.windowGlow);
+    w1.position.set(-0.16, 0.16, 0.085);
+    group.add(w1);
 
-    const roof2 = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.18, 4), mats.terracotta);
-    roof2.position.set(0.18, 0.27, 0.12);
-    roof2.rotation.y = Math.PI / 4;
-    roof2.scale.set(1.2, 1, 1.1);
-    roof2.castShadow = true;
-    group.add(roof2);
+    // House 2 (Cottage 2)
+    const h2Base = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.28), mats.whitePlaster);
+    h2Base.position.set(0.22, 0.11, 0.12);
+    h2Base.castShadow = true;
+    group.add(h2Base);
 
-    // Stone well in center
-    const well = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 8), mats.stone);
-    well.position.set(0.05, 0.04, -0.12);
-    well.castShadow = true;
-    group.add(well);
+    const h2Roof = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.2, 4), mats.terracotta);
+    h2Roof.position.set(0.22, 0.31, 0.12);
+    h2Roof.rotation.y = Math.PI / 4;
+    h2Roof.scale.set(1.25, 1, 1.15);
+    h2Roof.castShadow = true;
+    group.add(h2Roof);
+
+    // Central Stone Water Well with Canopy
+    const wellBase = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.11, 0.12, 8), mats.cobblestone);
+    wellBase.position.set(0.06, 0.06, -0.15);
+    wellBase.castShadow = true;
+    group.add(wellBase);
+
+    const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.24, 4), mats.wood);
+    p1.position.set(0.01, 0.18, -0.15);
+    group.add(p1);
+    const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.24, 4), mats.wood);
+    p2.position.set(0.11, 0.18, -0.15);
+    group.add(p2);
+
+    const wellRoof = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.10, 4), mats.terracotta);
+    wellRoof.position.set(0.06, 0.32, -0.15);
+    wellRoof.rotation.y = Math.PI / 4;
+    wellRoof.castShadow = true;
+    group.add(wellRoof);
 
     return group;
   }
 
-  /** Creates Weaving Hut with Handloom */
+  /**
+   * Creates Haat Marketplace & Seaside Boardwalk
+   * Includes wooden pier, multi-stall shops with striped canvas awnings,
+   * baskets, jars, fruit crates, lantern poles, and flags.
+   */
+  public static createHaatMarket(): THREE.Group {
+    const mats = this.mats;
+    const group = new THREE.Group();
+
+    // 1. Large Boardwalk Pier Foundation (Wooden Decking)
+    const pier = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.06, 0.84), mats.woodPlanks);
+    pier.position.set(0, 0.03, 0);
+    pier.receiveShadow = true;
+    pier.castShadow = true;
+    group.add(pier);
+
+    // Pier Pilings
+    const pilings = [
+      { x: -0.42, z: -0.38 }, { x: 0.42, z: -0.38 },
+      { x: -0.42, z: 0.38 }, { x: 0.42, z: 0.38 }
+    ];
+    pilings.forEach((p) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.2, 6), mats.darkWood);
+      post.position.set(p.x, -0.06, p.z);
+      post.castShadow = true;
+      group.add(post);
+    });
+
+    // 2. Market Stalls
+    // Stall 1 (Pink/White Striped Handloom Cloth Stall)
+    const s1 = this.createDetailedStall(mats.fabricPinkStripe, 'cloth');
+    s1.position.set(-0.24, 0.06, -0.18);
+    s1.rotation.y = 0.3;
+    group.add(s1);
+
+    // Stall 2 (Yellow/White Striped Spice & Grain Stall)
+    const s2 = this.createDetailedStall(mats.fabricYellowStripe, 'grain');
+    s2.position.set(0.24, 0.06, -0.15);
+    s2.rotation.y = -0.4;
+    group.add(s2);
+
+    // Stall 3 (Blue/White Striped Pottery & Craft Stall)
+    const s3 = this.createDetailedStall(mats.fabricBlueStripe, 'pottery');
+    s3.position.set(0, 0.06, 0.24);
+    s3.rotation.y = Math.PI;
+    group.add(s3);
+
+    // 3. Central Festival Lantern Tower
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.65, 6), mats.darkWood);
+    tower.position.set(0, 0.32, 0);
+    tower.castShadow = true;
+    group.add(tower);
+
+    const lantern = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07, 1), mats.lanternGlow);
+    lantern.position.set(0, 0.62, 0);
+    group.add(lantern);
+
+    // Hanging Festival Banners
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.26), mats.fabricBanner);
+    banner.position.set(0.08, 0.48, 0);
+    banner.rotation.y = Math.PI / 2;
+    group.add(banner);
+
+    // 4. Moored Wooden Boat
+    const boat = this.createBoat();
+    boat.position.set(0.48, 0.02, 0.38);
+    boat.rotation.y = -0.6;
+    group.add(boat);
+
+    return group;
+  }
+
+  private static createDetailedStall(canopyMat: THREE.Material, type: 'cloth' | 'grain' | 'pottery'): THREE.Group {
+    const mats = this.mats;
+    const stall = new THREE.Group();
+
+    // Wooden Counter Table
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.16), mats.wood);
+    counter.position.set(0, 0.06, 0);
+    counter.castShadow = true;
+    stall.add(counter);
+
+    // 4 Canopy Timber Posts
+    const pX = [-0.14, 0.14];
+    const pZ = [-0.07, 0.07];
+    pX.forEach(x => {
+      pZ.forEach(z => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.36, 4), mats.darkWood);
+        post.position.set(x, 0.18, z);
+        stall.add(post);
+      });
+    });
+
+    // Curved Striped Awning
+    const awning = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.14, 4), canopyMat);
+    awning.position.set(0, 0.36, 0);
+    awning.rotation.y = Math.PI / 4;
+    awning.scale.set(1.5, 0.8, 1.1);
+    awning.castShadow = true;
+    stall.add(awning);
+
+    // Goods on Counter
+    if (type === 'pottery') {
+      for (let i = 0; i < 3; i++) {
+        const pot = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035, 1), mats.clayPot);
+        pot.position.set(-0.08 + i * 0.08, 0.15, 0);
+        stall.add(pot);
+      }
+    } else if (type === 'grain') {
+      const sack = new THREE.Mesh(new THREE.DodecahedronGeometry(0.05, 0), mats.thatch);
+      sack.position.set(-0.06, 0.15, 0);
+      stall.add(sack);
+
+      const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.06, 6), mats.wood);
+      basket.position.set(0.06, 0.15, 0);
+      stall.add(basket);
+    } else {
+      const clothRoll = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.14, 6), mats.fabricPinkStripe);
+      clothRoll.rotation.z = Math.PI / 2;
+      clothRoll.position.set(0, 0.15, 0);
+      stall.add(clothRoll);
+    }
+
+    return stall;
+  }
+
+  /** Creates Moored Fishing / Haat Boat */
+  private static createBoat(): THREE.Group {
+    const mats = this.mats;
+    const boat = new THREE.Group();
+
+    const hull = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 4), mats.wood);
+    hull.rotation.x = Math.PI / 2;
+    hull.rotation.y = Math.PI / 4;
+    hull.scale.set(1, 1.8, 0.5);
+    hull.castShadow = true;
+    boat.add(hull);
+
+    // Sail mast
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.32, 4), mats.darkWood);
+    mast.position.set(0, 0.16, 0);
+    boat.add(mast);
+
+    const sail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.22), mats.whitePlaster);
+    sail.position.set(0.07, 0.18, 0);
+    sail.rotation.y = Math.PI / 2;
+    boat.add(sail);
+
+    return boat;
+  }
+
+  /** Creates Traditional Handloom Weaving Hut */
   public static createWeavingHut(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Round clay hut
-    const hut = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.26, 8), mats.earth);
-    hut.position.set(-0.12, 0.13, 0);
+    // Round Plaster Hut
+    const hut = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.28, 8), mats.whitePlaster);
+    hut.position.set(-0.12, 0.14, 0);
     hut.castShadow = true;
     group.add(hut);
 
-    // Conical thatch roof
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.22, 8), mats.thatch);
-    roof.position.set(-0.12, 0.36, 0);
+    // Thatched Conical Roof
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.26, 8), mats.thatch);
+    roof.position.set(-0.12, 0.40, 0);
     roof.castShadow = true;
     group.add(roof);
 
-    // Handloom frame (timber posts + beam)
-    const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 4), mats.wood);
-    post1.position.set(0.18, 0.11, -0.1);
-    post1.castShadow = true;
-    group.add(post1);
+    // Handloom Framework outside
+    const loom = new THREE.Group();
+    loom.position.set(0.20, 0, 0);
 
-    const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 4), mats.wood);
-    post2.position.set(0.18, 0.11, 0.1);
-    post2.castShadow = true;
-    group.add(post2);
+    const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.26, 4), mats.darkWood);
+    post1.position.set(0, 0.13, -0.1);
+    loom.add(post1);
+    const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.26, 4), mats.darkWood);
+    post2.position.set(0, 0.13, 0.1);
+    loom.add(post2);
 
-    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.24), mats.wood);
-    topBeam.position.set(0.18, 0.22, 0);
-    group.add(topBeam);
+    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.24), mats.darkWood);
+    topBeam.position.set(0, 0.25, 0);
+    loom.add(topBeam);
 
-    // Hanging colourful cloth
-    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.15), mats.fabricPink);
-    cloth.position.set(0.18, 0.14, 0);
+    // Hanging handwoven cloth runner
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.18), mats.fabricPinkStripe);
+    cloth.position.set(0, 0.16, 0);
     cloth.rotation.y = Math.PI / 2;
-    group.add(cloth);
+    loom.add(cloth);
 
+    group.add(loom);
     return group;
   }
 
-  /** Creates Pottery Workshop with Kiln */
+  /** Creates Pottery Workshop with Kiln Oven and Pots */
   public static createPotteryWorkshop(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Brick Kiln
-    const kiln = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.32, 8), mats.terracotta);
-    kiln.position.set(-0.14, 0.16, -0.05);
+    // Terracotta Kiln Dome
+    const kiln = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.36, 8), mats.clayPot);
+    kiln.position.set(-0.14, 0.18, -0.06);
     kiln.castShadow = true;
     group.add(kiln);
 
-    // Work table
-    const table = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.16), mats.wood);
-    table.position.set(0.15, 0.08, 0.08);
-    table.castShadow = true;
-    group.add(table);
+    // Kiln fire opening
+    const opening = new THREE.Mesh(new THREE.DodecahedronGeometry(0.06, 0), mats.fireFlames);
+    opening.position.set(-0.14, 0.08, 0.12);
+    group.add(opening);
 
-    // Clay Pots on table & ground
+    // Workbench with clay pots
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.10, 0.18), mats.wood);
+    bench.position.set(0.16, 0.08, 0.08);
+    bench.castShadow = true;
+    group.add(bench);
+
     for (let i = 0; i < 3; i++) {
-      const pot = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04, 1), mats.terracotta);
-      pot.position.set(0.08 + i * 0.07, 0.15, 0.08);
-      pot.scale.set(1, 1.2, 1);
-      pot.castShadow = true;
+      const pot = new THREE.Mesh(new THREE.DodecahedronGeometry(0.045, 1), mats.clayPot);
+      pot.position.set(0.08 + i * 0.08, 0.17, 0.08);
       group.add(pot);
     }
 
     return group;
   }
 
-  /** Creates Lumber Camp with Logs */
+  /** Creates Lumber Camp with Cabin and Stacked Logs */
   public static createLumberCamp(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Cabin
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.3), mats.darkWood);
-    cabin.position.set(-0.12, 0.11, -0.08);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.24, 0.32), mats.darkWood);
+    cabin.position.set(-0.14, 0.12, -0.08);
     cabin.castShadow = true;
     group.add(cabin);
 
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.18, 4), mats.wood);
-    roof.position.set(-0.12, 0.29, -0.08);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.20, 4), mats.wood);
+    roof.position.set(-0.14, 0.32, -0.08);
     roof.rotation.y = Math.PI / 4;
-    roof.scale.set(1.3, 1, 1.1);
+    roof.scale.set(1.3, 1, 1.15);
     roof.castShadow = true;
     group.add(roof);
 
-    // Stacked logs
-    for (let i = 0; i < 3; i++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 6), mats.wood);
+    // Stacked Timber Logs
+    for (let i = 0; i < 4; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.32, 6), mats.wood);
       log.rotation.z = Math.PI / 2;
-      log.position.set(0.18, 0.04 + (i > 1 ? 0.06 : 0), -0.05 + (i % 2) * 0.09);
+      const layer = i < 2 ? 0.04 : 0.10;
+      const zOff = (i % 2 === 0 ? -0.05 : 0.05);
+      log.position.set(0.18, layer, zOff);
       log.castShadow = true;
       group.add(log);
     }
@@ -258,213 +584,131 @@ export class EnvironmentModels {
     return group;
   }
 
-  /** Creates Quarry with Stone & Scaffold Crane */
+  /** Creates Stone Quarry with Derrick Crane */
   public static createQuarry(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Large stone blocks
-    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.2), mats.stone);
-    b1.position.set(-0.1, 0.08, -0.1);
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 0.24), mats.stone);
+    b1.position.set(-0.12, 0.09, -0.1);
     b1.castShadow = true;
     group.add(b1);
 
-    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.16), mats.darkStone);
-    b2.position.set(0.12, 0.06, -0.05);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.14, 0.18), mats.cliffRock);
+    b2.position.set(0.14, 0.07, -0.05);
     b2.castShadow = true;
     group.add(b2);
 
-    // Crane Mast
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.45, 4), mats.wood);
-    mast.position.set(0.1, 0.225, 0.12);
+    // Timber Derrick Crane
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.52, 4), mats.wood);
+    mast.position.set(0.10, 0.26, 0.14);
     mast.castShadow = true;
     group.add(mast);
 
-    // Crane Jib
-    const jib = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 4), mats.wood);
-    jib.position.set(0.02, 0.4, 0.08);
+    const jib = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.34, 4), mats.wood);
+    jib.position.set(0.01, 0.44, 0.10);
     jib.rotation.z = Math.PI / 4;
     group.add(jib);
 
     return group;
   }
 
-  /** Creates Haat Marketplace with canopied stalls */
-  public static createHaatMarket(): THREE.Group {
-    const mats = this.mats;
-    const group = new THREE.Group();
-
-    // Central marketplace stone flagstone
-    const plaza = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.5, 0.04, 6), mats.stone);
-    plaza.position.set(0, 0.02, 0);
-    plaza.receiveShadow = true;
-    group.add(plaza);
-
-    // Stall 1 (Pink/Red Canopy)
-    const s1 = this.createMarketStall(mats.fabricPink);
-    s1.position.set(-0.2, 0, -0.15);
-    s1.rotation.y = 0.4;
-    group.add(s1);
-
-    // Stall 2 (Yellow Canopy)
-    const s2 = this.createMarketStall(mats.fabricYellow);
-    s2.position.set(0.2, 0, -0.12);
-    s2.rotation.y = -0.5;
-    group.add(s2);
-
-    // Stall 3 (Blue Canopy)
-    const s3 = this.createMarketStall(mats.fabricBlue);
-    s3.position.set(0, 0, 0.2);
-    s3.rotation.y = Math.PI;
-    group.add(s3);
-
-    // Central Lantern Pole
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.45, 6), mats.darkWood);
-    pole.position.set(0, 0.225, 0);
-    pole.castShadow = true;
-    group.add(pole);
-
-    const lantern = new THREE.Mesh(new THREE.DodecahedronGeometry(0.05, 1), mats.lanternGlow);
-    lantern.position.set(0, 0.42, 0);
-    group.add(lantern);
-
-    return group;
-  }
-
-  private static createMarketStall(canopyMat: THREE.Material): THREE.Group {
-    const mats = this.mats;
-    const stall = new THREE.Group();
-
-    // Wooden table counter
-    const table = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.12), mats.wood);
-    table.position.set(0, 0.05, 0);
-    table.castShadow = true;
-    stall.add(table);
-
-    // 4 Canopy poles
-    const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.28, 4), mats.wood);
-    p1.position.set(-0.1, 0.14, -0.05);
-    stall.add(p1);
-
-    const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.28, 4), mats.wood);
-    p2.position.set(0.1, 0.14, -0.05);
-    stall.add(p2);
-
-    const p3 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.28, 4), mats.wood);
-    p3.position.set(-0.1, 0.14, 0.05);
-    stall.add(p3);
-
-    const p4 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.28, 4), mats.wood);
-    p4.position.set(0.1, 0.14, 0.05);
-    stall.add(p4);
-
-    // Sloped Fabric Canopy
-    const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.1, 4), canopyMat);
-    canopy.position.set(0, 0.28, 0);
-    canopy.rotation.y = Math.PI / 4;
-    canopy.scale.set(1.4, 0.8, 1);
-    canopy.castShadow = true;
-    stall.add(canopy);
-
-    return stall;
-  }
-
-  /** Creates Music Pavilion */
+  /** Creates Music & Cultural Pavilion */
   public static createPavilion(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Hexagonal plinth
-    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.4, 0.06, 6), mats.stone);
-    plinth.position.y = 0.03;
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.08, 6), mats.cobblestone);
+    plinth.position.y = 0.04;
     plinth.receiveShadow = true;
     group.add(plinth);
 
-    // 6 Carved pillars
+    // 6 Carved Pillars
     for (let i = 0; i < 6; i++) {
       const a = (i * Math.PI) / 3;
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.32, 6), mats.wood);
-      pillar.position.set(Math.cos(a) * 0.3, 0.19, Math.sin(a) * 0.3);
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.36, 6), mats.wood);
+      pillar.position.set(Math.cos(a) * 0.34, 0.22, Math.sin(a) * 0.34);
       pillar.castShadow = true;
       group.add(pillar);
     }
 
-    // Tiered Pagoda Roof
-    const roof1 = new THREE.Mesh(new THREE.ConeGeometry(0.44, 0.16, 6), mats.terracotta);
-    roof1.position.y = 0.4;
+    // Two-Tiered Terracotta Pagoda Roof
+    const roof1 = new THREE.Mesh(new THREE.ConeGeometry(0.48, 0.18, 6), mats.terracotta);
+    roof1.position.y = 0.45;
     roof1.castShadow = true;
     group.add(roof1);
 
-    const roof2 = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.14, 6), mats.terracotta);
-    roof2.position.y = 0.52;
+    const roof2 = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.14, 6), mats.terracotta);
+    roof2.position.y = 0.58;
     roof2.castShadow = true;
     group.add(roof2);
 
     return group;
   }
 
-  /** Creates Sacred Heritage Shrine */
+  /** Creates Hilltop Heritage Shrine / Watchtower */
   public static createShrine(): THREE.Group {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Stone Steps
-    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.38, 0.05, 8), mats.stone);
-    s1.position.y = 0.025;
+    // Terraced Stone Steps
+    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.06, 8), mats.stone);
+    s1.position.y = 0.03;
     group.add(s1);
 
-    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.05, 8), mats.stone);
-    s2.position.y = 0.075;
+    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.30, 0.06, 8), mats.stone);
+    s2.position.y = 0.09;
     group.add(s2);
 
-    // Central Stupa / Sanctum
-    const stupa = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18, 1), mats.stone);
-    stupa.position.y = 0.22;
-    stupa.scale.set(1, 1.2, 1);
-    stupa.castShadow = true;
-    group.add(stupa);
+    // Watchtower Sanctuary
+    const sanctum = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 0.32), mats.whitePlaster);
+    sanctum.position.y = 0.27;
+    sanctum.castShadow = true;
+    group.add(sanctum);
 
-    // Golden Finial
-    const finial = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 6), mats.goldCoin);
-    finial.position.y = 0.4;
+    // Golden Finial & Roof
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.22, 4), mats.terracotta);
+    roof.position.y = 0.52;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const finial = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 6), mats.goldCoin);
+    finial.position.y = 0.68;
     finial.castShadow = true;
     group.add(finial);
 
     // Glowing Diya Lamp
-    const diya = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04, 1), mats.lanternGlow);
-    diya.position.set(0, 0.12, 0.2);
+    const diya = new THREE.Mesh(new THREE.DodecahedronGeometry(0.05, 1), mats.lanternGlow);
+    diya.position.set(0, 0.14, 0.22);
     group.add(diya);
 
     return group;
   }
 
-  /** Creates Interactive Treasure Chest */
+  /** Creates Interactive Gold-Trimmed Treasure Chest */
   public static createTreasureChest(): { group: THREE.Group; lid: THREE.Mesh } {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // Chest Body
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.22), mats.wood);
-    body.position.y = 0.09;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.20, 0.24), mats.darkWood);
+    body.position.y = 0.10;
     body.castShadow = true;
     group.add(body);
 
-    // Metal banding
-    const band = new THREE.Mesh(new THREE.BoxGeometry(0.33, 0.19, 0.04), mats.goldCoin);
-    band.position.y = 0.09;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.21, 0.05), mats.goldCoin);
+    band.position.y = 0.10;
     group.add(band);
 
-    // Hinged Lid
-    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.32, 8, 1, false, 0, Math.PI), mats.wood);
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.34, 8, 1, false, 0, Math.PI), mats.wood);
     lid.rotation.z = Math.PI / 2;
-    lid.position.set(0, 0.18, -0.11);
+    lid.position.set(0, 0.20, -0.12);
     lid.castShadow = true;
     group.add(lid);
 
     return { group, lid };
   }
 
-  /** Builds landmark by kind */
   public static buildLandmark(kind: LandmarkKind): THREE.Group {
     switch (kind) {
       case 'farmhouse':

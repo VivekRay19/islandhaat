@@ -1,10 +1,12 @@
 import { AmbientOverlay } from './AmbientOverlay';
 import { IntroMusic } from '../audio/IntroMusic';
+import { IslandHaatTitle } from './IslandHaatTitle';
 
 export class IntroScreen {
   private container: HTMLElement;
   private root: HTMLElement;
   private ambientOverlay: AmbientOverlay;
+  private titleComponent: IslandHaatTitle;
   private music = IntroMusic.get();
 
   // Modals
@@ -33,11 +35,11 @@ export class IntroScreen {
     this.container.appendChild(this.root);
 
     // -------------------------------------------------------------
-    // LAYER 1: EXACT REFERENCE IMAGE (UNTOUCHED BASE)
+    // LAYER 1: CLEAN RECONSTRUCTED BACKGROUND (EXACT ORIGINAL ART)
     // -------------------------------------------------------------
     const bgImage = document.createElement('img');
-    bgImage.src = '/assets/intro_background.jpg';
-    bgImage.alt = 'Island Haat';
+    bgImage.src = '/assets/intro_background_clean.jpg';
+    bgImage.alt = 'Island Haat Background';
     bgImage.style.cssText = `
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -55,7 +57,13 @@ export class IntroScreen {
     this.ambientOverlay = new AmbientOverlay(this.root);
 
     // -------------------------------------------------------------
-    // LAYER 3: FUNCTIONAL UI LAYER
+    // LAYER 3: SEPARATE CODED ISLAND HAAT TITLE
+    // -------------------------------------------------------------
+    this.titleComponent = new IslandHaatTitle();
+    this.root.appendChild(this.titleComponent.getElement());
+
+    // -------------------------------------------------------------
+    // LAYER 4: FUNCTIONAL MENU UI LAYER
     // -------------------------------------------------------------
     this.buildUILayer();
 
@@ -85,11 +93,11 @@ export class IntroScreen {
     `;
     this.root.appendChild(uiLayer);
 
-    // Center Buttons Container (aligned with reference button stack)
+    // Center Buttons Container (Comfortably positioned below the Title)
     const buttonGroup = document.createElement('div');
     buttonGroup.style.cssText = `
       position: absolute;
-      top: 61%; left: 50%;
+      top: 66%; left: 50%;
       transform: translate(-50%, -50%);
       display: flex;
       flex-direction: column;

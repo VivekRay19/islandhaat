@@ -1,6 +1,9 @@
-import Phaser from 'phaser';
-import { GameConfig } from './game/GameConfig';
+import { IslandGame } from './world/IslandGame';
 
 window.addEventListener('DOMContentLoaded', () => {
-  new Phaser.Game(GameConfig);
+  const container = document.getElementById('game-container');
+  if (container) {
+    // Mount complete 3D Island Engine
+    new IslandGame(container);
+  }
 });

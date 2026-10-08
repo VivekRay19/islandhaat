@@ -35,10 +35,10 @@ export class IntroScreen {
     this.container.appendChild(this.root);
 
     // -------------------------------------------------------------
-    // LAYER 1: CLEAN RECONSTRUCTED BACKGROUND (EXACT ORIGINAL ART)
+    // LAYER 1: APPROVED EXACT BACKGROUND ARTWORK (image(10).png)
     // -------------------------------------------------------------
     const bgImage = document.createElement('img');
-    bgImage.src = '/assets/intro_background_clean.jpg';
+    bgImage.src = '/assets/intro_background.jpg';
     bgImage.alt = 'Island Haat Background';
     bgImage.style.cssText = `
       position: absolute;

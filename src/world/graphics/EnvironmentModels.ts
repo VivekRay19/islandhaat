@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Materials } from './Materials';
 import { LandmarkKind } from '../data/tileLibrary';
+import { CulturalModelBuilder } from './CulturalModelBuilder';
 
 export class EnvironmentModels {
   private static mats = Materials.get();
@@ -729,6 +730,18 @@ export class EnvironmentModels {
         return this.createPavilion();
       case 'shrine':
         return this.createShrine();
+      case 'bihar_workshop':
+        return CulturalModelBuilder.createBiharWorkshop();
+      case 'maha_watchtower':
+        return CulturalModelBuilder.createMaharashtraWatchtower();
+      case 'bengal_pandal':
+        return CulturalModelBuilder.createBengalPandal();
+      case 'karnataka_toy_shop':
+        return CulturalModelBuilder.createKarnatakaToyShop();
+      case 'gujarat_textile':
+        return CulturalModelBuilder.createGujaratTextile();
+      case 'rajasthan_haveli':
+        return CulturalModelBuilder.createRajasthanHaveli();
       default:
         return new THREE.Group();
     }

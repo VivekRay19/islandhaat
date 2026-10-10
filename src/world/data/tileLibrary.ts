@@ -14,7 +14,13 @@ export type LandmarkKind =
   | 'quarry'
   | 'haat'
   | 'pavilion'
-  | 'shrine';
+  | 'shrine'
+  | 'bihar_workshop'
+  | 'maha_watchtower'
+  | 'bengal_pandal'
+  | 'karnataka_toy_shop'
+  | 'gujarat_textile'
+  | 'rajasthan_haveli';
 
 export interface Production {
   resource: ResourceKind | 'coins';
@@ -269,6 +275,78 @@ export const TILE_LIBRARY: Record<string, TileDef> = {
     unlockLevel: 3,
     weight: 0.4,
     description: 'An old banyan sheltering a small stone shrine.'
+  },
+  bihar_tile: {
+    id: 'bihar_tile',
+    name: 'Mithila Workshop',
+    edges: T(['grass', 'field', 'village', 'village', 'grass', 'grass']),
+    landmark: 'bihar_workshop',
+    produces: { resource: 'fibre', amount: 3, every: 16 },
+    culturalTags: ['craft', 'heritage', 'bihar'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'Earthen walls adorned with traditional Madhubani painted murals and golden Sikki grass crafts.'
+  },
+  maha_tile: {
+    id: 'maha_tile',
+    name: 'Sahyadri Watchtower',
+    edges: T(['stone', 'stone', 'village', 'stone', 'grass', 'grass']),
+    landmark: 'maha_watchtower',
+    produces: { resource: 'stone', amount: 3, every: 16 },
+    culturalTags: ['architecture', 'stone', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'A fortified basalt watchtower inspired by Western Ghat hill bastions and Paithani handlooms.'
+  },
+  bengal_tile: {
+    id: 'bengal_tile',
+    name: 'Festival Pandal',
+    edges: T(['village', 'water', 'village', 'grass', 'grass', 'water']),
+    landmark: 'bengal_pandal',
+    produces: { resource: 'music', amount: 3, every: 16 },
+    culturalTags: ['festival', 'community', 'west_bengal'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'A celebratory festival gathering pavilion with terracotta reliefs and floral festoons.'
+  },
+  karnataka_tile: {
+    id: 'karnataka_tile',
+    name: 'Channapatna Studio',
+    edges: T(['forest', 'village', 'forest', 'grass', 'stone', 'grass']),
+    landmark: 'karnataka_toy_shop',
+    produces: { resource: 'wood', amount: 3, every: 16 },
+    culturalTags: ['wood', 'craft', 'karnataka'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'Lacquered wooden toy lathe studio flanked by Hampi monolithic carved granite pillars.'
+  },
+  gujarat_tile: {
+    id: 'gujarat_tile',
+    name: 'Patola Bazaar',
+    edges: T(['village', 'water', 'village', 'village', 'grass', 'water']),
+    landmark: 'gujarat_textile',
+    produces: { resource: 'coins', amount: 5, every: 16 },
+    culturalTags: ['trade', 'textile', 'gujarat'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'A vibrant maritime bazaar with double-ikat Patola canopies and tie-dye drying frames.'
+  },
+  rajasthan_tile: {
+    id: 'rajasthan_tile',
+    name: 'Sandstone Haveli',
+    edges: T(['stone', 'field', 'village', 'stone', 'grass', 'grass']),
+    landmark: 'rajasthan_haveli',
+    produces: { resource: 'clay', amount: 3, every: 16 },
+    culturalTags: ['heritage', 'water', 'rajasthan'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.2,
+    description: 'Golden Jaisalmer sandstone haveli with ornate jharokha balconies and Jaipur blue pottery.'
   }
 };
 
@@ -351,7 +429,13 @@ export const LANDMARK_LABEL: Record<LandmarkKind, string> = {
   quarry: 'Quarry',
   haat: 'Haat',
   pavilion: 'Music Pavilion',
-  shrine: 'Heritage Shrine'
+  shrine: 'Heritage Shrine',
+  bihar_workshop: 'Mithila Workshop',
+  maha_watchtower: 'Sahyadri Watchtower',
+  bengal_pandal: 'Festival Pandal',
+  karnataka_toy_shop: 'Channapatna Studio',
+  gujarat_textile: 'Patola Bazaar',
+  rajasthan_haveli: 'Sandstone Haveli'
 };
 
 export function drawableTiles(level: number): TileDef[] {

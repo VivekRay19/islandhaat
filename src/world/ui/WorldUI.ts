@@ -3,6 +3,8 @@ import { DayNightSystem } from '../graphics/DayNightSystem';
 import { GameMode } from '../camera/CameraController';
 import { InteractableTarget } from '../interaction/InteractionSystem';
 import { TILE_LIBRARY } from '../data/tileLibrary';
+import { CULTURE_PROFILES } from '../culture/CultureRegistry';
+import { IndianState } from '../culture/CultureTypes';
 
 export class WorldUI {
   private container: HTMLElement;
@@ -11,6 +13,8 @@ export class WorldUI {
 
   // Top Bar elements
   private dayText!: HTMLElement;
+  private cultureBadge!: HTMLElement;
+  private cultureScoreText!: HTMLElement;
   private coinVal!: HTMLElement;
   private woodVal!: HTMLElement;
   private wheatVal!: HTMLElement;
@@ -19,6 +23,9 @@ export class WorldUI {
   private clockWidget!: HTMLElement;
   private clockIcon!: HTMLElement;
   private clockTime!: HTMLElement;
+
+  // Quest Tracker
+  private questTracker!: HTMLElement;
 
   // Build Mode Hand Bar
   private handBarContainer!: HTMLElement;
@@ -60,8 +67,10 @@ export class WorldUI {
   }
 
   private buildDOM(): void {
+    const profile = CULTURE_PROFILES[this.state.selectedCulture];
+
     // =========================================================================
-    // 1. TOP BAR HUD (MATCHING REFERENCE IMAGE)
+    // 1. TOP BAR HUD
     // =========================================================================
     const topBar = document.createElement('div');
     topBar.style.cssText = `
@@ -74,13 +83,16 @@ export class WorldUI {
     `;
     this.container.appendChild(topBar);
 
-    // Top-Left: Island Title & Day Counter
+    // Top-Left: Island Title, Day Counter & Cultural State Badge
     const topLeft = document.createElement('div');
     topLeft.style.cssText = `
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      align-items: center;
+      gap: 14px;
     `;
+
+    const titleStack = document.createElement('div');
+    titleStack.style.cssText = `display:flex; flex-direction:column; gap:2px;`;
     const title = document.createElement('div');
     title.style.cssText = `
       font-size: 18px;
@@ -98,11 +110,32 @@ export class WorldUI {
       color: #94a3b8;
     `;
     this.dayText.innerText = 'DAY 3';
-    topLeft.appendChild(title);
-    topLeft.appendChild(this.dayText);
+    titleStack.appendChild(title);
+    titleStack.appendChild(this.dayText);
+    topLeft.appendChild(titleStack);
+
+    // State & Specialist Cultural Pill
+    this.cultureBadge = document.createElement('div');
+    this.cultureBadge.style.cssText = `
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid ${profile.palette.primary};
+      border-radius: 20px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    `;
+    this.cultureBadge.innerHTML = `
+      <span style="font-size:14px; font-weight:800; color:${profile.palette.primary};">${profile.stateName}</span>
+      <span style="font-size:11px; color:#cbd5e1;">| ${profile.specialist.roleTitle}</span>
+      <span style="font-size:11px; font-weight:800; color:#4ade80;">(⚡ ${profile.specialist.abilityName})</span>
+    `;
+    topLeft.appendChild(this.cultureBadge);
     topBar.appendChild(topLeft);
 
-    // Top-Center: Resource Bar (Coins, Wood, Wheat, Stone, Flowers)
+    // Top-Center: Resource Bar + Cultural Score
     const resourceBar = document.createElement('div');
     resourceBar.style.cssText = `
       background: rgba(15, 23, 42, 0.85);
@@ -112,9 +145,22 @@ export class WorldUI {
       padding: 6px 18px;
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     `;
+
+    // Culture Score
+    this.cultureScoreText = document.createElement('div');
+    this.cultureScoreText.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #facc15;
+    `;
+    this.cultureScoreText.innerHTML = `<span>⭐</span> <span>${this.state.cultureScore}</span>`;
+    resourceBar.appendChild(this.cultureScoreText);
 
     const createResItem = (icon: string, initialVal: number) => {
       const item = document.createElement('div');
@@ -129,15 +175,15 @@ export class WorldUI {
       return { item, valSpan: item.querySelector('span:nth-child(2)') as HTMLElement };
     };
 
-    const resCoin = createResItem('🪙', 420);
+    const resCoin = createResItem('🪙', this.state.coins);
     this.coinVal = resCoin.valSpan;
-    const resWood = createResItem('🪵', 58);
+    const resWood = createResItem('🪵', this.state.inventory.wood);
     this.woodVal = resWood.valSpan;
-    const resWheat = createResItem('🌾', 32);
+    const resWheat = createResItem('🌾', this.state.inventory.grain);
     this.wheatVal = resWheat.valSpan;
-    const resStone = createResItem('🪨', 18);
+    const resStone = createResItem('🪨', this.state.inventory.stone);
     this.stoneVal = resStone.valSpan;
-    const resFlower = createResItem('🌸', 12);
+    const resFlower = createResItem('🌸', this.state.inventory.fibre);
     this.flowerVal = resFlower.valSpan;
 
     resourceBar.appendChild(resCoin.item);
@@ -172,11 +218,30 @@ export class WorldUI {
     this.clockWidget.onclick = () => this.dayNight.toggleFreeze();
     topBar.appendChild(this.clockWidget);
 
-    // Mode Toggle Button (Floating)
+    // Quest Tracker Widget (Top-Left under Header)
+    this.questTracker = document.createElement('div');
+    this.questTracker.style.cssText = `
+      position: absolute;
+      top: 76px; left: 24px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 320px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      pointer-events: auto;
+    `;
+    this.container.appendChild(this.questTracker);
+
+    // Mode Toggle Button (Floating Top-Right)
     this.modeToggleBtn = document.createElement('button');
     this.modeToggleBtn.style.cssText = `
       position: absolute;
-      top: 80px; right: 24px;
+      top: 76px; right: 24px;
       background: linear-gradient(135deg, #0284c7, #2563eb);
       border: 1px solid rgba(255,255,255,0.3);
       border-radius: 22px;
@@ -197,7 +262,7 @@ export class WorldUI {
     this.container.appendChild(this.modeToggleBtn);
 
     // =========================================================================
-    // 2. BOTTOM HAND DECK (MATCHING REFERENCE IMAGE)
+    // 2. BOTTOM HAND DECK
     // =========================================================================
     this.handBarContainer = document.createElement('div');
     this.handBarContainer.style.cssText = `
@@ -211,7 +276,6 @@ export class WorldUI {
     `;
     this.container.appendChild(this.handBarContainer);
 
-    // Left Arrow
     const leftArrow = document.createElement('div');
     leftArrow.style.cssText = `
       width: 38px; height: 38px;
@@ -224,7 +288,6 @@ export class WorldUI {
     leftArrow.innerHTML = `◀`;
     this.handBarContainer.appendChild(leftArrow);
 
-    // Cards Row
     this.cardsRow = document.createElement('div');
     this.cardsRow.style.cssText = `
       display: flex;
@@ -233,7 +296,6 @@ export class WorldUI {
     `;
     this.handBarContainer.appendChild(this.cardsRow);
 
-    // Right Arrow
     const rightArrow = document.createElement('div');
     rightArrow.style.cssText = `
       width: 38px; height: 38px;
@@ -246,7 +308,6 @@ export class WorldUI {
     rightArrow.innerHTML = `▶`;
     this.handBarContainer.appendChild(rightArrow);
 
-    // Stack Counter Badge (Right)
     this.stackCounter = document.createElement('div');
     this.stackCounter.style.cssText = `
       width: 52px; height: 52px;
@@ -266,13 +327,12 @@ export class WorldUI {
     this.handBarContainer.appendChild(this.stackCounter);
 
     // =========================================================================
-    // 3. EXPLORATION MODE HUD (MATCHING REFERENCE IMAGE)
+    // 3. EXPLORATION MODE HUD
     // =========================================================================
-    // Objective Badge (Top-Left)
     this.exploreObjective = document.createElement('div');
     this.exploreObjective.style.cssText = `
       position: absolute;
-      top: 80px; left: 24px;
+      top: 76px; left: 24px;
       background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.18);
@@ -281,20 +341,12 @@ export class WorldUI {
       display: none;
       flex-direction: column;
       gap: 4px;
-      min-width: 220px;
+      min-width: 240px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       pointer-events: auto;
     `;
-    this.exploreObjective.innerHTML = `
-      <div style="font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">
-        🚩 Current Objective
-      </div>
-      <div style="font-size:14px;font-weight:800;color:#fff;">Visit the Haat</div>
-      <div style="font-size:11px;color:#94a3b8;">Explore the marketplace and trade goods</div>
-    `;
     this.container.appendChild(this.exploreObjective);
 
-    // Virtual WASD Pad (Bottom-Left)
     this.wasdOverlay = document.createElement('div');
     this.wasdOverlay.style.cssText = `
       position: absolute;
@@ -315,7 +367,6 @@ export class WorldUI {
     `;
     this.container.appendChild(this.wasdOverlay);
 
-    // Floating Interaction Prompt (Bottom-Center)
     this.interactPrompt = document.createElement('div');
     this.interactPrompt.style.cssText = `
       position: absolute;
@@ -338,7 +389,9 @@ export class WorldUI {
     `;
     this.container.appendChild(this.interactPrompt);
 
-    // Haat Trading Modal
+    // =========================================================================
+    // 4. HAAT INTER-STATE TRADING MODAL
+    // =========================================================================
     this.haatModal = document.createElement('div');
     this.haatModal.style.cssText = `
       position: absolute;
@@ -349,8 +402,10 @@ export class WorldUI {
       border: 2px solid #f59e0b;
       border-radius: 24px;
       padding: 24px 32px;
-      width: 480px;
-      max-width: 90vw;
+      width: 580px;
+      max-width: 92vw;
+      max-height: 85vh;
+      overflow-y: auto;
       box-shadow: 0 24px 64px rgba(0,0,0,0.7);
       display: none;
       flex-direction: column;
@@ -398,7 +453,7 @@ export class WorldUI {
                        tileDef.id.includes('farm') || tileDef.id.includes('field') ? '🌾' :
                        tileDef.id.includes('water') || tileDef.id.includes('river') ? '💧' :
                        tileDef.id.includes('hill') || tileDef.id.includes('quarry') ? '⛰️' :
-                       tileDef.id.includes('haat') ? '🏪' : '🏡';
+                       tileDef.id.includes('haat') || tileDef.id.includes('bazaar') ? '🏪' : '🏡';
 
       const title = document.createElement('div');
       title.style.cssText = `font-size: 11px; font-weight: 800; color: #fff; text-align: center;`;
@@ -420,28 +475,48 @@ export class WorldUI {
   }
 
   public update(mode: GameMode, interactTarget: InteractableTarget | null): void {
+    const q = this.state.activeQuest;
+
     // 1. Clock & Phase update
     const phaseInfo = this.dayNight.getPhaseInfo();
     this.clockIcon.innerText = phaseInfo.symbol;
     this.clockTime.innerText = phaseInfo.phase === 'night' ? '8:47 PM' : (phaseInfo.phase === 'dusk' ? '6:15 PM' : '10:24 AM');
 
-    // 2. Resource counters
+    // 2. Resource & Culture score counters
     this.coinVal.innerText = `${this.state.coins}`;
     this.woodVal.innerText = `${this.state.inventory.wood}`;
     this.wheatVal.innerText = `${this.state.inventory.grain}`;
-    this.stoneVal.innerText = `${this.state.inventory.clay}`;
+    this.stoneVal.innerText = `${this.state.inventory.stone}`;
     this.flowerVal.innerText = `${this.state.inventory.fibre}`;
+    this.cultureScoreText.innerHTML = `<span>⭐</span> <span>${this.state.cultureScore}</span>`;
 
     // 3. Stack Counter
     this.stackCounter.innerHTML = `<span>${this.state.refills * 3 + this.state.hand.length}</span>`;
 
-    // 4. Mode-specific HUD Visibility
+    // 4. Quest Tracker Update
+    this.questTracker.innerHTML = `
+      <div style="font-size:10px; font-weight:800; color:#f59e0b; letter-spacing:0.5px;">🚩 CULTURAL QUEST</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">${q.title}</div>
+      <div style="font-size:11px; color:#cbd5e1; line-height:1.3;">${q.subtitle}</div>
+      <div style="font-size:11px; font-weight:700; color:${q.completed ? '#4ade80' : '#38bdf8'}; margin-top:2px;">
+        ${q.completed ? 'COMPLETED ✅' : `Progress: ${q.currentCount} / ${q.targetCount}`}
+      </div>
+    `;
+
+    // 5. Mode-specific HUD Visibility
     if (mode === 'explore') {
       this.modeToggleBtn.innerHTML = `← Exit Character`;
       this.modeToggleBtn.style.background = 'linear-gradient(135deg, #475569, #334155)';
       this.handBarContainer.style.display = 'none';
+      this.questTracker.style.display = 'none';
       this.exploreObjective.style.display = 'flex';
       this.wasdOverlay.style.display = 'flex';
+
+      this.exploreObjective.innerHTML = `
+        <div style="font-size:10px; font-weight:800; color:#f59e0b; letter-spacing:0.5px;">🚩 EXPLORATION OBJECTIVE</div>
+        <div style="font-size:14px; font-weight:800; color:#fff;">${q.title}</div>
+        <div style="font-size:11px; color:#cbd5e1;">${q.description}</div>
+      `;
 
       if (interactTarget) {
         this.interactPrompt.style.display = 'flex';
@@ -453,6 +528,7 @@ export class WorldUI {
       this.modeToggleBtn.innerHTML = `🚶 Enter Island`;
       this.modeToggleBtn.style.background = 'linear-gradient(135deg, #0284c7, #2563eb)';
       this.handBarContainer.style.display = 'flex';
+      this.questTracker.style.display = 'flex';
       this.exploreObjective.style.display = 'none';
       this.wasdOverlay.style.display = 'none';
       this.interactPrompt.style.display = 'none';
@@ -461,29 +537,43 @@ export class WorldUI {
 
   public showHaatTradeModal(onClose: () => void): void {
     this.haatModal.style.display = 'flex';
-    this.haatModal.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="font-size:20px;font-weight:800;color:#f59e0b;display:flex;gap:8px;align-items:center;">🏪 Haat Trading Square</h2>
-        <button id="close-haat-btn" style="background:transparent;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
-      </div>
-      <p style="font-size:13px;color:#cbd5e1;">Exchange local produce with visiting island traders for cultural resources and coins.</p>
-      
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-weight:700;">🪵 Leela the Weaver</div>
-            <div style="font-size:12px;color:#94a3b8;">Offers 2x 🧵 Textile for 2x 🌾 Grain</div>
-          </div>
-          <button id="trade-1-btn" style="background:#f59e0b;color:#0f172a;border:none;border-radius:10px;padding:6px 14px;font-weight:700;cursor:pointer;">Trade</button>
-        </div>
 
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-weight:700;">💧 Kabir the Mariner</div>
-            <div style="font-size:12px;color:#94a3b8;">Offers 25x 🪙 Coins for 1x 🏺 Pottery</div>
+    // Inter-state cultural exchange items from other states
+    const states: IndianState[] = ['bihar', 'maharashtra', 'west_bengal', 'karnataka', 'gujarat', 'rajasthan'];
+    const otherStates = states.filter(s => s !== this.state.selectedCulture);
+
+    let tradesHtml = '';
+    otherStates.forEach((st) => {
+      const otherProf = CULTURE_PROFILES[st];
+      const tradeItem = otherProf.crossTradeItems[0];
+      if (tradeItem) {
+        tradesHtml += `
+          <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:800; font-size:13px; color:#facc15;">${otherProf.stateName} Merchant</div>
+              <div style="font-size:12px; font-weight:700; color:#fff; margin-top:1px;">${tradeItem.name}</div>
+              <div style="font-size:11px; color:#94a3b8; line-height:1.3;">${tradeItem.description}</div>
+              <div style="font-size:10px; font-weight:700; color:#38bdf8; margin-top:3px;">Cost: ${tradeItem.requiredResource.amount}x ${tradeItem.requiredResource.kind} → +${tradeItem.costCoins} Coins, +${tradeItem.cultureBonus} Culture</div>
+            </div>
+            <button class="trade-cultural-btn" data-state="${st}" style="background:#f59e0b; color:#0f172a; border:none; border-radius:10px; padding:8px 16px; font-weight:800; font-size:12px; cursor:pointer;">Trade</button>
           </div>
-          <button id="trade-2-btn" style="background:#f59e0b;color:#0f172a;border:none;border-radius:10px;padding:6px 14px;font-weight:700;cursor:pointer;">Trade</button>
+        `;
+      }
+    });
+
+    this.haatModal.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h2 style="font-size:20px; font-weight:900; color:#f59e0b; margin:0; display:flex; gap:8px; align-items:center;">
+            🏪 Haat Inter-State Cultural Exchange
+          </h2>
+          <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Exchange goods with merchants from visiting Indian states</div>
         </div>
+        <button id="close-haat-btn" style="background:transparent; border:none; color:#94a3b8; font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        ${tradesHtml}
       </div>
     `;
 
@@ -492,18 +582,37 @@ export class WorldUI {
       onClose();
     };
 
-    document.getElementById('trade-1-btn')!.onclick = () => {
-      this.state.coins += 20;
-      this.state.inventory.fibre += 2;
-      this.haatModal.style.display = 'none';
-      onClose();
-    };
+    // Attach trade listeners
+    const buttons = this.haatModal.querySelectorAll('.trade-cultural-btn');
+    buttons.forEach((btn) => {
+      (btn as HTMLElement).onclick = (e) => {
+        const targetSt = (e.currentTarget as HTMLElement).getAttribute('data-state') as IndianState;
+        const otherProf = CULTURE_PROFILES[targetSt];
+        const tradeItem = otherProf.crossTradeItems[0];
+        if (tradeItem) {
+          // Gujarat Specialist bonus: Skilled Exchange (+30% coins)
+          const bonus = this.state.selectedCulture === 'gujarat' ? 1.3 : 1.0;
+          const coinsEarned = Math.round(tradeItem.costCoins * bonus);
 
-    document.getElementById('trade-2-btn')!.onclick = () => {
-      this.state.coins += 35;
-      this.haatModal.style.display = 'none';
-      onClose();
-    };
+          this.state.coins += coinsEarned;
+          this.state.cultureScore += tradeItem.cultureBonus;
+
+          this.showFloatingReward(`+${coinsEarned} Coins & +${tradeItem.cultureBonus} Culture!`, window.innerWidth / 2, window.innerHeight / 2);
+
+          // Advance quest if trade quest
+          if (!this.state.activeQuest.completed && this.state.activeQuest.goalType === 'trade_haat') {
+            this.state.activeQuest.currentCount++;
+            if (this.state.activeQuest.currentCount >= this.state.activeQuest.targetCount) {
+              this.state.completeActiveQuest();
+            }
+          }
+
+          this.state.saveToStorage();
+        }
+        this.haatModal.style.display = 'none';
+        onClose();
+      };
+    });
   }
 
   public showFloatingReward(text: string, x: number, y: number): void {

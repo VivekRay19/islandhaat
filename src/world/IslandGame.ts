@@ -14,6 +14,7 @@ import { Tweens } from './core/Tweens';
 import { HEX_R, SQRT3, parseKey, hexKey } from './hex/Hex';
 import { EnvironmentModels } from './graphics/EnvironmentModels';
 import { TILE_LIBRARY } from './data/tileLibrary';
+import { IndianState } from './culture/CultureTypes';
 
 export class IslandGame {
   private scene: THREE.Scene;
@@ -50,10 +51,14 @@ export class IslandGame {
 
   private clock: THREE.Clock = new THREE.Clock();
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, culture: IndianState = 'bihar', isContinue = false) {
     this.materials = Materials.get();
     this.audio = WorldAudio.get();
-    this.state = new WorldState();
+    if (isContinue) {
+      this.state = WorldState.loadFromStorage() || new WorldState(culture);
+    } else {
+      this.state = new WorldState(culture);
+    }
     this.interactions = new InteractionSystem();
 
     // 1. Setup Three.js Scene & Renderer

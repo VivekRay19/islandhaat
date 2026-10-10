@@ -77,7 +77,13 @@ export class InteractionSystem {
             quarry: { label: 'Stone Quarry', action: 'Carve Masonry' },
             haat: { label: 'Haat Marketplace', action: 'Enter Haat Trade' },
             pavilion: { label: 'Music Pavilion', action: 'Play Folk Rhythm' },
-            shrine: { label: 'Heritage Shrine', action: 'Offer Diya Light' }
+            shrine: { label: 'Heritage Shrine', action: 'Offer Diya Light' },
+            bihar_workshop: { label: 'Mithila Workshop', action: 'Paint Mithila Mural' },
+            maha_watchtower: { label: 'Sahyadri Watchtower', action: 'Survey Deccan Hills' },
+            bengal_pandal: { label: 'Festival Pandal', action: 'Celebrate Community Festival' },
+            karnataka_toy_shop: { label: 'Channapatna Studio', action: 'Craft Lacquered Toy' },
+            gujarat_textile: { label: 'Patola Bazaar', action: 'Inspect Double-Ikat Weave' },
+            rajasthan_haveli: { label: 'Sandstone Haveli', action: 'Admire Jharokha Balcony' }
           };
 
           const info = actions[def.landmark] || { label: 'Structure', action: 'Interact' };

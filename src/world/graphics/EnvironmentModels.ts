@@ -732,18 +732,63 @@ export class EnvironmentModels {
         return this.createPavilion();
       case 'shrine':
         return this.createShrine();
+
+      // Bihar
       case 'bihar_workshop':
-        return CulturalModelBuilder.createBiharWorkshop();
+        return CulturalArchitectureBuilder.createBiharWorkshop();
+      case 'bihar_sikki':
+        return CulturalArchitectureBuilder.createSikkiHouse();
+      case 'bihar_pond':
+        return CulturalArchitectureBuilder.createPokharPond();
+
+      // Maharashtra
       case 'maha_watchtower':
-        return CulturalModelBuilder.createMaharashtraWatchtower();
+        return CulturalArchitectureBuilder.createMaharashtraWatchtower();
+      case 'maha_wada':
+        return CulturalArchitectureBuilder.createWada();
+      case 'maha_gateway':
+        return CulturalArchitectureBuilder.createFortGateway();
+      case 'maha_paithani':
+        return CulturalArchitectureBuilder.createPaithaniWeavingHouse();
+      case 'maha_warli':
+        return CulturalArchitectureBuilder.createWarliPavilion();
+      case 'maha_cistern':
+        return CulturalArchitectureBuilder.createFortCistern();
+
+      // West Bengal
       case 'bengal_pandal':
-        return CulturalModelBuilder.createBengalPandal();
+        return CulturalArchitectureBuilder.createBengalPandal();
+      case 'bengal_jorbangla':
+        return CulturalArchitectureBuilder.createJorBanglaHouse();
+      case 'bengal_baluchari':
+        return CulturalArchitectureBuilder.createBaluchariHouse();
+      case 'bengal_ghat':
+        return CulturalArchitectureBuilder.createRiverGhat();
+
+      // Karnataka
       case 'karnataka_toy_shop':
-        return CulturalModelBuilder.createKarnatakaToyShop();
+        return CulturalArchitectureBuilder.createKarnatakaToyShop();
+      case 'karnataka_mysore':
+        return CulturalArchitectureBuilder.createMysoreArtHouse();
+      case 'karnataka_yakshagana':
+        return CulturalArchitectureBuilder.createYakshaganaCourtyard();
+
+      // Gujarat
       case 'gujarat_textile':
-        return CulturalModelBuilder.createGujaratTextile();
+        return CulturalArchitectureBuilder.createGujaratTextile();
+      case 'gujarat_stepwell':
+        return CulturalArchitectureBuilder.createStepwell();
+      case 'gujarat_bandhani':
+        return CulturalArchitectureBuilder.createBandhaniStudio();
+
+      // Rajasthan
       case 'rajasthan_haveli':
-        return CulturalModelBuilder.createRajasthanHaveli();
+        return CulturalArchitectureBuilder.createRajasthanHaveli();
+      case 'rajasthan_bluepottery':
+        return CulturalArchitectureBuilder.createBluePotteryStudio();
+      case 'rajasthan_kathputli':
+        return CulturalArchitectureBuilder.createKathputliPavilion();
+
       default:
         return new THREE.Group();
     }

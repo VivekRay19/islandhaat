@@ -79,11 +79,27 @@ export class InteractionSystem {
             pavilion: { label: 'Music Pavilion', action: 'Play Folk Rhythm' },
             shrine: { label: 'Heritage Shrine', action: 'Offer Diya Light' },
             bihar_workshop: { label: 'Mithila Workshop', action: 'Paint Mithila Mural' },
+            bihar_sikki: { label: 'Sikki Grass House', action: 'Weave Golden Grass' },
+            bihar_pond: { label: 'Community Pokhar', action: 'Draw Sacred Water' },
             maha_watchtower: { label: 'Sahyadri Watchtower', action: 'Survey Deccan Hills' },
+            maha_wada: { label: 'Traditional Wada', action: 'Gather at Chowk' },
+            maha_gateway: { label: 'Sahyadri Fort Gate', action: 'Inspect Bastion Guard' },
+            maha_paithani: { label: 'Paithani Handloom', action: 'Weave Zari Peacock' },
+            maha_warli: { label: 'Warli Art Pavilion', action: 'Paint Tarpa Spiral' },
+            maha_cistern: { label: 'Fort Rock Cistern', action: 'Collect Mountain Water' },
             bengal_pandal: { label: 'Festival Pandal', action: 'Celebrate Community Festival' },
+            bengal_jorbangla: { label: 'Jor-Bangla House', action: 'Admire Twin Roofs' },
+            bengal_baluchari: { label: 'Baluchari Handloom', action: 'Weave Mythic Silk' },
+            bengal_ghat: { label: 'Riverfront Ghat', action: 'Launch Fishing Dinghi' },
             karnataka_toy_shop: { label: 'Channapatna Studio', action: 'Craft Lacquered Toy' },
+            karnataka_mysore: { label: 'Mysore Art House', action: 'Inlay Teak Woodwork' },
+            karnataka_yakshagana: { label: 'Yakshagana Courtyard', action: 'Play Chande Drum' },
             gujarat_textile: { label: 'Patola Bazaar', action: 'Inspect Double-Ikat Weave' },
-            rajasthan_haveli: { label: 'Sandstone Haveli', action: 'Admire Jharokha Balcony' }
+            gujarat_stepwell: { label: 'Rani ki Vav Stepwell', action: 'Descend Stone Tiers' },
+            gujarat_bandhani: { label: 'Bandhani Studio', action: 'Tie-Dye Silk Textile' },
+            rajasthan_haveli: { label: 'Sandstone Haveli', action: 'Admire Jharokha Balcony' },
+            rajasthan_bluepottery: { label: 'Blue Pottery Studio', action: 'Glaze Cobalt Urn' },
+            rajasthan_kathputli: { label: 'Kathputli Stage', action: 'Perform Marionette Show' }
           };
 
           const info = actions[def.landmark] || { label: 'Structure', action: 'Interact' };

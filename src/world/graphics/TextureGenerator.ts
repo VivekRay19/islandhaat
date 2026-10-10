@@ -522,6 +522,174 @@ export class TextureGenerator {
     return tex;
   }
 
+  /** Maharashtra: Warli Folk Art geometric mural on earthen red-ochre plaster */
+  public static createWarliTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Warm earthen red-ochre geru base (#B98259)
+    ctx.fillStyle = '#b98259';
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle earthen wall plaster grain
+    for (let i = 0; i < 3000; i++) {
+      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(160, 100, 60, 0.2)' : 'rgba(215, 170, 130, 0.15)';
+      ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+    }
+
+    // Sacred Warli white rice-paste geometric border (triangles & dots)
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(16, 16, size - 32, size - 32);
+
+    const borderStep = 16;
+    for (let x = 20; x < size - 20; x += borderStep) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x, 16);
+      ctx.lineTo(x + borderStep / 2, 24);
+      ctx.lineTo(x + borderStep, 16);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(x, size - 16);
+      ctx.lineTo(x + borderStep / 2, size - 24);
+      ctx.lineTo(x + borderStep, size - 16);
+      ctx.fill();
+    }
+
+    // Central Tarpa Dance: Concentric circles of dancing human figures
+    const cx = size / 2;
+    const cy = size / 2;
+
+    // Central Tarpa Player
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 5, 0, Math.PI * 2); // head
+    ctx.fill();
+    // Torso (two triangles joined at tip)
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy - 3);
+    ctx.lineTo(cx + 6, cy - 3);
+    ctx.lineTo(cx, cy + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 5);
+    ctx.lineTo(cx - 7, cy + 14);
+    ctx.lineTo(cx + 7, cy + 14);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2 Concentric Rings of Dancing Villagers holding hands (characteristic Warli spiral)
+    const rings = [
+      { radius: 65, dancers: 14 },
+      { radius: 110, dancers: 22 },
+      { radius: 160, dancers: 30 }
+    ];
+
+    rings.forEach((ring) => {
+      for (let i = 0; i < ring.dancers; i++) {
+        const a = (i * Math.PI * 2) / ring.dancers;
+        const x = cx + Math.cos(a) * ring.radius;
+        const y = cy + Math.sin(a) * ring.radius;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(a + Math.PI / 2);
+
+        // Head
+        ctx.beginPath();
+        ctx.arc(0, -7, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Upper triangle
+        ctx.beginPath();
+        ctx.moveTo(-5, -3);
+        ctx.lineTo(5, -3);
+        ctx.lineTo(0, 3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Lower triangle
+        ctx.beginPath();
+        ctx.moveTo(0, 3);
+        ctx.lineTo(-6, 10);
+        ctx.lineTo(6, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // Connected arms to neighbors
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-5, -2);
+        ctx.lineTo(-12, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(5, -2);
+        ctx.lineTo(12, 0);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    });
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** West Bengal: Baluchari Silk Handloom with mythological woven pallu */
+  public static createBaluchariTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Rich deep royal indigo/maroon silk base
+    ctx.fillStyle = '#450a0a';
+    ctx.fillRect(0, 0, size, size);
+
+    // Gilded cream & gold jacquard woven rows
+    const rows = 6;
+    const rh = size / rows;
+    for (let r = 0; r < rows; r++) {
+      const y = r * rh;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(8, y + 4, size - 16, rh - 8);
+
+      // Figurative woven medallions
+      for (let c = 0; c < 4; c++) {
+        const mx = 64 + c * 115;
+        const my = y + rh / 2;
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(mx, my, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f87171';
+        ctx.beginPath();
+        ctx.arc(mx, my, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   /** State-specific Terrain Surface Texture */
   public static createStateTerrainTexture(state: string): THREE.CanvasTexture {
     const size = 512;
@@ -542,12 +710,21 @@ export class TextureGenerator {
         break;
 
       case 'maharashtra':
-        // Weathered dark basalt rock plateau
-        ctx.fillStyle = '#334155';
+        // Bright, Sunlit Sahyadri Monsoon Landscape (#A5C982 grass + #C1D99A new growth + #B98259 earth)
+        ctx.fillStyle = '#A5C982'; // Sunlit lush grass
         ctx.fillRect(0, 0, size, size);
-        for (let i = 0; i < 5000; i++) {
-          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(15, 23, 42, 0.45)' : 'rgba(100, 116, 139, 0.3)';
-          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 4);
+
+        // Monsoon growth specks & warm earth patches
+        for (let i = 0; i < 4500; i++) {
+          const rand = Math.random();
+          if (rand > 0.6) {
+            ctx.fillStyle = 'rgba(193, 217, 154, 0.5)'; // #C1D99A light monsoon growth
+          } else if (rand > 0.3) {
+            ctx.fillStyle = 'rgba(185, 130, 89, 0.3)'; // #B98259 warm earth
+          } else {
+            ctx.fillStyle = 'rgba(208, 193, 165, 0.35)'; // #D0C1A5 sunlit stone highlights
+          }
+          ctx.fillRect(Math.random() * size, Math.random() * size, 3, 3);
         }
         break;
 

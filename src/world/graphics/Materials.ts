@@ -62,6 +62,8 @@ export class Materials {
   public mysoreGold: THREE.MeshStandardMaterial;
   public patolaIkat: THREE.MeshStandardMaterial;
   public bluePottery: THREE.MeshStandardMaterial;
+  public warliArt: THREE.MeshStandardMaterial;
+  public baluchariSilk: THREE.MeshStandardMaterial;
 
   // Regional Architecture & Rocks
   public sandstone: THREE.MeshStandardMaterial;
@@ -70,6 +72,20 @@ export class Materials {
   public ochrePlaster: THREE.MeshStandardMaterial;
   public bengalBrick: THREE.MeshStandardMaterial;
   public saffronStandard: THREE.MeshStandardMaterial;
+
+  // Maharashtra Specific Bright Palette
+  public sahyadriSunlitGrass: THREE.MeshStandardMaterial;
+  public sahyadriFoliage: THREE.MeshStandardMaterial;
+  public sahyadriMonsoon: THREE.MeshStandardMaterial;
+  public sahyadriWarmStone: THREE.MeshStandardMaterial;
+  public sahyadriSunlitStone: THREE.MeshStandardMaterial;
+  public sahyadriEarth: THREE.MeshStandardMaterial;
+  public sahyadriTerracottaRoof: THREE.MeshStandardMaterial;
+  public sahyadriLimePlaster: THREE.MeshStandardMaterial;
+  public paithaniTeal: THREE.MeshStandardMaterial;
+  public paithaniMagenta: THREE.MeshStandardMaterial;
+  public sahyadriSaffron: THREE.MeshStandardMaterial;
+  public sahyadriFreshWater: THREE.MeshStandardMaterial;
 
   // State terrain maps
   private stateTerrains: Map<string, THREE.MeshStandardMaterial> = new Map();
@@ -404,6 +420,94 @@ export class Materials {
       metalness: 0.0
     });
 
+    // Cultural Craft Textures
+    this.warliArt = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createWarliTexture(),
+      roughness: 0.85,
+      metalness: 0.0
+    });
+
+    this.baluchariSilk = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createBaluchariTexture(),
+      roughness: 0.5,
+      metalness: 0.2
+    });
+
+    // Maharashtra Specific Brighter Palette (#A5C982, #A69B8A, #B98259, #C96F4D, #F1E2C9, etc.)
+    this.sahyadriSunlitGrass = new THREE.MeshStandardMaterial({
+      color: 0xA5C982,
+      roughness: 0.75,
+      metalness: 0.02
+    });
+
+    this.sahyadriFoliage = new THREE.MeshStandardMaterial({
+      color: 0x648B56,
+      roughness: 0.80,
+      metalness: 0.02
+    });
+
+    this.sahyadriMonsoon = new THREE.MeshStandardMaterial({
+      color: 0xC1D99A,
+      roughness: 0.72,
+      metalness: 0.02
+    });
+
+    this.sahyadriWarmStone = new THREE.MeshStandardMaterial({
+      color: 0xA69B8A,
+      roughness: 0.82,
+      metalness: 0.05
+    });
+
+    this.sahyadriSunlitStone = new THREE.MeshStandardMaterial({
+      color: 0xD0C1A5,
+      roughness: 0.76,
+      metalness: 0.04
+    });
+
+    this.sahyadriEarth = new THREE.MeshStandardMaterial({
+      color: 0xB98259,
+      roughness: 0.88,
+      metalness: 0.02
+    });
+
+    this.sahyadriTerracottaRoof = new THREE.MeshStandardMaterial({
+      color: 0xC96F4D,
+      roughness: 0.65,
+      metalness: 0.03
+    });
+
+    this.sahyadriLimePlaster = new THREE.MeshStandardMaterial({
+      color: 0xF1E2C9,
+      roughness: 0.86,
+      metalness: 0.0
+    });
+
+    this.paithaniTeal = new THREE.MeshStandardMaterial({
+      color: 0x237D83,
+      roughness: 0.45,
+      metalness: 0.28
+    });
+
+    this.paithaniMagenta = new THREE.MeshStandardMaterial({
+      color: 0xA94470,
+      roughness: 0.45,
+      metalness: 0.28
+    });
+
+    this.sahyadriSaffron = new THREE.MeshStandardMaterial({
+      color: 0xE4A23B,
+      roughness: 0.7,
+      metalness: 0.0
+    });
+
+    this.sahyadriFreshWater = new THREE.MeshStandardMaterial({
+      color: 0x78BCD2,
+      roughness: 0.1,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.88
+    });
+
     // Populate State Terrains & Cliffs
     const states = ['bihar', 'maharashtra', 'west_bengal', 'karnataka', 'gujarat', 'rajasthan'];
     for (const st of states) {
@@ -420,10 +524,11 @@ export class Materials {
         cliffCol = 0x854d0e; // Silt cliff
         strataCol = 0x713f12;
       } else if (st === 'maharashtra') {
-        col = 0x334155; // Dark basalt plateau
-        cliffCol = 0x1e293b; // Deep basalt rock
-        strataCol = 0x0f172a;
-        roughness = 0.92;
+        // Brighter Sunlit Sahyadri Landscape
+        col = 0xA5C982; // Sunlit fresh grass
+        cliffCol = 0xA69B8A; // Warm stone
+        strataCol = 0xB98259; // Warm earthen soil
+        roughness = 0.78;
       } else if (st === 'west_bengal') {
         col = 0x16a34a; // Lush riverbank green
         cliffCol = 0x78350f; // River clay

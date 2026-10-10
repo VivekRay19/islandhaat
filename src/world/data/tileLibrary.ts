@@ -16,11 +16,27 @@ export type LandmarkKind =
   | 'pavilion'
   | 'shrine'
   | 'bihar_workshop'
+  | 'bihar_sikki'
+  | 'bihar_pond'
   | 'maha_watchtower'
+  | 'maha_wada'
+  | 'maha_gateway'
+  | 'maha_paithani'
+  | 'maha_warli'
+  | 'maha_cistern'
   | 'bengal_pandal'
+  | 'bengal_jorbangla'
+  | 'bengal_baluchari'
+  | 'bengal_ghat'
   | 'karnataka_toy_shop'
+  | 'karnataka_mysore'
+  | 'karnataka_yakshagana'
   | 'gujarat_textile'
-  | 'rajasthan_haveli';
+  | 'gujarat_stepwell'
+  | 'gujarat_bandhani'
+  | 'rajasthan_haveli'
+  | 'rajasthan_bluepottery'
+  | 'rajasthan_kathputli';
 
 export interface Production {
   resource: ResourceKind | 'coins';
@@ -347,6 +363,210 @@ export const TILE_LIBRARY: Record<string, TileDef> = {
     unlockLevel: 1,
     weight: 1.2,
     description: 'Golden Jaisalmer sandstone haveli with ornate jharokha balconies and Jaipur blue pottery.'
+  },
+
+  // --- MAHARASHTRA SPECIAL BUILDS ---
+  maha_wada: {
+    id: 'maha_wada',
+    name: 'Wada Courtyard House',
+    edges: T(['village', 'grass', 'village', 'stone', 'grass', 'grass']),
+    landmark: 'maha_wada',
+    produces: { resource: 'coins', amount: 4, every: 18 },
+    culturalTags: ['architecture', 'heritage', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 1,
+    weight: 1.0,
+    description: 'Traditional Maratha Wada residence featuring a sunlit central inner courtyard, carved sagwan timber columns, and sloping terracotta roof.'
+  },
+  maha_gateway: {
+    id: 'maha_gateway',
+    name: 'Sahyadri Fort Gateway',
+    edges: T(['stone', 'stone', 'village', 'stone', 'stone', 'grass']),
+    landmark: 'maha_gateway',
+    produces: { resource: 'stone', amount: 4, every: 18 },
+    culturalTags: ['architecture', 'stone', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Panhala-inspired hill-fort stone gateway with rounded bastions, thick defensive walls, stone steps, and flying saffron flag.'
+  },
+  maha_paithani: {
+    id: 'maha_paithani',
+    name: 'Paithani Weaving House',
+    edges: T(['village', 'grass', 'village', 'grass', 'field', 'grass']),
+    landmark: 'maha_paithani',
+    produces: { resource: 'fibre', amount: 4, every: 18 },
+    culturalTags: ['textile', 'craft', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Active silk handloom workshop with a visible wooden pit loom, golden zari spools, and Paithani peacock-motif sarees.'
+  },
+  maha_warli: {
+    id: 'maha_warli',
+    name: 'Warli Art Pavilion',
+    edges: T(['grass', 'village', 'grass', 'grass', 'village', 'grass']),
+    landmark: 'maha_warli',
+    produces: { resource: 'music', amount: 2, every: 20 },
+    culturalTags: ['heritage', 'community', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.8,
+    description: 'Open community gathering space adorned with authentic white geometric Warli Tarpa dance murals on warm red-ochre earthen plaster.'
+  },
+  maha_cistern: {
+    id: 'maha_cistern',
+    name: 'Fort Water Cistern',
+    edges: T(['water', 'stone', 'water', 'stone', 'grass', 'grass']),
+    landmark: 'maha_cistern',
+    produces: { resource: 'water', amount: 4, every: 16 },
+    culturalTags: ['water', 'architecture', 'maharashtra'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.8,
+    description: 'Ancient Sahyadri hill-fort stone water tank (tanka) with stepped stone descent providing vital mountain water storage.'
+  },
+
+  // --- BIHAR SPECIAL BUILDS ---
+  bihar_sikki: {
+    id: 'bihar_sikki',
+    name: 'Sikki Craft House',
+    edges: T(['village', 'field', 'grass', 'village', 'grass', 'grass']),
+    landmark: 'bihar_sikki',
+    produces: { resource: 'fibre', amount: 3, every: 18 },
+    culturalTags: ['craft', 'heritage', 'bihar'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Workshop and exhibition cottage dedicated to golden Sikki grass basketry, storage vessels, and woven handcrafted toys.'
+  },
+  bihar_pond: {
+    id: 'bihar_pond',
+    name: 'Community Pokhar Pond',
+    edges: T(['water', 'grass', 'village', 'water', 'grass', 'grass']),
+    landmark: 'bihar_pond',
+    produces: { resource: 'water', amount: 3, every: 18 },
+    culturalTags: ['water', 'community', 'bihar'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Sacred village pond with clay embankment steps, floating lotus blossoms, and an earthen gathering pavilion.'
+  },
+
+  // --- WEST BENGAL SPECIAL BUILDS ---
+  bengal_jorbangla: {
+    id: 'bengal_jorbangla',
+    name: 'Jor-Bangla Heritage House',
+    edges: T(['village', 'grass', 'village', 'grass', 'water', 'grass']),
+    landmark: 'bengal_jorbangla',
+    produces: { resource: 'clay', amount: 4, every: 18 },
+    culturalTags: ['heritage', 'architecture', 'west_bengal'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Bishnupur-inspired twin hut architectural structure featuring curved terracotta char-chala roofs and carved floral relief panels.'
+  },
+  bengal_baluchari: {
+    id: 'bengal_baluchari',
+    name: 'Baluchari Weaving House',
+    edges: T(['village', 'grass', 'village', 'grass', 'field', 'grass']),
+    landmark: 'bengal_baluchari',
+    produces: { resource: 'fibre', amount: 4, every: 18 },
+    culturalTags: ['textile', 'craft', 'west_bengal'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Traditional Bengal silk workshop with an active handloom producing rich Baluchari brocades with intricate mythological motifs.'
+  },
+  bengal_ghat: {
+    id: 'bengal_ghat',
+    name: 'Riverfront Craft Ghat',
+    edges: T(['water', 'water', 'village', 'water', 'grass', 'grass']),
+    landmark: 'bengal_ghat',
+    produces: { resource: 'coins', amount: 4, every: 18 },
+    culturalTags: ['water', 'trade', 'west_bengal'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Brick river landing with stepped bathing ghat, moored wooden dinghy boat, and fishing net repair stations.'
+  },
+
+  // --- KARNATAKA SPECIAL BUILDS ---
+  karnataka_mysore: {
+    id: 'karnataka_mysore',
+    name: 'Mysore Art House',
+    edges: T(['village', 'grass', 'village', 'stone', 'grass', 'grass']),
+    landmark: 'karnataka_mysore',
+    produces: { resource: 'coins', amount: 4, every: 18 },
+    culturalTags: ['craft', 'heritage', 'karnataka'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Heritage studio dedicated to classic Mysore gold-leaf gesso paintings, carved rosewood frames, and brass incense burners.'
+  },
+  karnataka_yakshagana: {
+    id: 'karnataka_yakshagana',
+    name: 'Yakshagana Courtyard',
+    edges: T(['grass', 'village', 'grass', 'grass', 'village', 'grass']),
+    landmark: 'karnataka_yakshagana',
+    produces: { resource: 'music', amount: 3, every: 18 },
+    culturalTags: ['festival', 'heritage', 'karnataka'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Stepped granite performance space for coastal Yakshagana dance theatre, complete with ornate headdress crowns and percussion drums.'
+  },
+
+  // --- GUJARAT SPECIAL BUILDS ---
+  gujarat_stepwell: {
+    id: 'gujarat_stepwell',
+    name: 'Artisan Stepwell (Vav)',
+    edges: T(['water', 'stone', 'village', 'water', 'stone', 'grass']),
+    landmark: 'gujarat_stepwell',
+    produces: { resource: 'water', amount: 5, every: 16 },
+    culturalTags: ['water', 'architecture', 'gujarat'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Rani ki Vav-inspired multi-tiered subterranean water structure with descending carved stone colonnades and cool subterranean pool.'
+  },
+  gujarat_bandhani: {
+    id: 'gujarat_bandhani',
+    name: 'Bandhani Craft Studio',
+    edges: T(['village', 'grass', 'village', 'grass', 'water', 'grass']),
+    landmark: 'gujarat_bandhani',
+    produces: { resource: 'fibre', amount: 4, every: 18 },
+    culturalTags: ['textile', 'craft', 'gujarat'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Textile tie-dye workshop equipped with natural dye vats, fabric-stretching lines, and drying lengths of vibrant dot-patterned Bandhani.'
+  },
+
+  // --- RAJASTHAN SPECIAL BUILDS ---
+  rajasthan_bluepottery: {
+    id: 'rajasthan_bluepottery',
+    name: 'Blue Pottery Studio',
+    edges: T(['village', 'stone', 'village', 'grass', 'stone', 'grass']),
+    landmark: 'rajasthan_bluepottery',
+    produces: { resource: 'clay', amount: 4, every: 18 },
+    culturalTags: ['craft', 'heritage', 'rajasthan'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Jaipur artisanal studio with a brick kiln and display shelves filled with quartz-glazed cobalt blue and turquoise floral pottery.'
+  },
+  rajasthan_kathputli: {
+    id: 'rajasthan_kathputli',
+    name: 'Kathputli Puppet Stage',
+    edges: T(['grass', 'village', 'grass', 'grass', 'village', 'grass']),
+    landmark: 'rajasthan_kathputli',
+    produces: { resource: 'music', amount: 3, every: 18 },
+    culturalTags: ['festival', 'heritage', 'rajasthan'],
+    rarity: 'rare',
+    unlockLevel: 2,
+    weight: 0.9,
+    description: 'Canopied Rajasthani string puppet performance pavilion with embroidered stage drapes and traditional wooden Kathputli dolls.'
   }
 };
 
@@ -431,11 +651,27 @@ export const LANDMARK_LABEL: Record<LandmarkKind, string> = {
   pavilion: 'Music Pavilion',
   shrine: 'Heritage Shrine',
   bihar_workshop: 'Mithila Workshop',
+  bihar_sikki: 'Sikki Grass Craft House',
+  bihar_pond: 'Community Pokhar Pond',
   maha_watchtower: 'Sahyadri Watchtower',
+  maha_wada: 'Traditional Wada House',
+  maha_gateway: 'Sahyadri Fort Gateway',
+  maha_paithani: 'Paithani Weaving House',
+  maha_warli: 'Warli Art Pavilion',
+  maha_cistern: 'Fort Water Cistern',
   bengal_pandal: 'Festival Pandal',
+  bengal_jorbangla: 'Jor-Bangla House',
+  bengal_baluchari: 'Baluchari Weaving House',
+  bengal_ghat: 'Riverfront Craft Ghat',
   karnataka_toy_shop: 'Channapatna Studio',
+  karnataka_mysore: 'Mysore Art House',
+  karnataka_yakshagana: 'Yakshagana Courtyard',
   gujarat_textile: 'Patola Bazaar',
-  rajasthan_haveli: 'Sandstone Haveli'
+  gujarat_stepwell: 'Artisan Stepwell',
+  gujarat_bandhani: 'Bandhani Craft Studio',
+  rajasthan_haveli: 'Sandstone Haveli',
+  rajasthan_bluepottery: 'Blue Pottery Studio',
+  rajasthan_kathputli: 'Kathputli Puppet Stage'
 };
 
 export function drawableTiles(level: number): TileDef[] {

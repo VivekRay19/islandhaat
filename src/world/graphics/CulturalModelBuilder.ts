@@ -72,20 +72,20 @@ export class CulturalModelBuilder {
     const mats = this.mats;
     const group = new THREE.Group();
 
-    // 1. Basalt Rock Foundation Plinth
-    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.50, 0.10, 6), mats.cliffRock);
+    // 1. Warm Stone Foundation Plinth (Sunlit Sahyadri stone)
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.50, 0.10, 8), mats.sahyadriWarmStone);
     plinth.position.y = 0.05;
     plinth.receiveShadow = true;
     group.add(plinth);
 
-    // 2. Basalt Stone Watchtower Cylinder (Decan fort style)
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.58, 8), mats.cliffRock);
+    // 2. Sunlit Stone Watchtower Cylinder (Hill-fort bastion style)
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.58, 8), mats.sahyadriSunlitStone);
     tower.position.y = 0.39;
     tower.castShadow = true;
     group.add(tower);
 
-    // 3. Fort Parapet Crenellations (Battlement rim)
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.25, 0.08, 8), mats.stone);
+    // 3. Fort Parapet Crenellations (Warm masonry rim)
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.25, 0.08, 8), mats.sahyadriWarmStone);
     rim.position.y = 0.72;
     rim.castShadow = true;
     group.add(rim);
@@ -95,7 +95,7 @@ export class CulturalModelBuilder {
     flagpole.position.set(0, 0.90, 0);
     group.add(flagpole);
 
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), mats.fabricYellowStripe);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), mats.sahyadriSaffron);
     flag.position.set(0.09, 1.02, 0);
     flag.rotation.y = Math.PI / 2;
     group.add(flag);
@@ -105,14 +105,18 @@ export class CulturalModelBuilder {
     gate.position.set(0, 0.19, 0.26);
     group.add(gate);
 
-    // 6. Paithani Weaving Display (Beside tower)
+    // 6. Paithani Weaving Display with authentic teal silk and magenta border
     const loomPost = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.04), mats.wood);
     loomPost.position.set(-0.25, 0.11, -0.15);
     group.add(loomPost);
 
-    const paithaniCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.18), mats.fabricBlueStripe);
+    const paithaniCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.18), mats.paithaniTeal);
     paithaniCloth.position.set(-0.25, 0.12, -0.13);
     group.add(paithaniCloth);
+
+    const paithaniBorder = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.04), mats.paithaniMagenta);
+    paithaniBorder.position.set(-0.25, 0.05, -0.129);
+    group.add(paithaniBorder);
 
     return group;
   }

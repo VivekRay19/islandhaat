@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { Materials } from '../graphics/Materials';
 import { TerrainField } from '../hex/TerrainField';
 import { clamp, damp, dampAngle, lerp } from '../core/math';
+import { IndianState } from '../culture/CultureTypes';
+import { CulturalSpecialistBuilder } from '../graphics/CulturalSpecialistBuilder';
 
 export class CharacterController {
   public mesh: THREE.Group;
   public dogMesh: THREE.Group;
+  public culture: IndianState;
+  private specialistMesh: THREE.Group;
 
   // Character body parts
   private head: THREE.Group;
@@ -44,13 +48,18 @@ export class CharacterController {
   public inputVector: THREE.Vector2 = new THREE.Vector2(0, 0);
   public jumpRequested: boolean = false;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, culture: IndianState = 'bihar') {
+    this.culture = culture;
     const mats = Materials.get();
 
     // =========================================================================
-    // 1. STYLIZED ADVENTURER CHARACTER
+    // 1. STYLIZED SPECIALIST CHARACTER
     // =========================================================================
     this.mesh = new THREE.Group();
+
+    // Dedicated Culture Specialist Model
+    this.specialistMesh = CulturalSpecialistBuilder.createSpecialist(culture);
+    this.mesh.add(this.specialistMesh);
 
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xf5caa6, roughness: 0.6 });
     const tunicMat = new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.75 }); // Ruby/terracotta tunic
@@ -62,71 +71,31 @@ export class CharacterController {
 
     // Torso / Tunic
     this.torso = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.14), tunicMat);
-    this.torso.position.y = 0.24;
-    this.torso.castShadow = true;
-    this.torso.receiveShadow = true;
-    this.mesh.add(this.torso);
+    this.torso.visible = false;
 
     // Explorer Scarf
     this.scarf = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.16), scarfMat);
-    this.scarf.position.set(0, 0.35, 0.02);
-    this.mesh.add(this.scarf);
+    this.scarf.visible = false;
 
     // Adventurer Backpack
     this.backpack = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.10), bagMat);
-    this.backpack.position.set(0, 0.25, -0.11);
-    this.backpack.castShadow = true;
-    this.mesh.add(this.backpack);
+    this.backpack.visible = false;
 
     // Head Group
     this.head = new THREE.Group();
-    this.head.position.y = 0.44;
-
-    const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), skinMat);
-    headMesh.castShadow = true;
-    this.head.add(headMesh);
-
-    // Stylized Anime/Chibi Hair
-    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.18), hairMat);
-    hair.position.set(0, 0.06, -0.02);
-    this.head.add(hair);
-
-    const hairTuft = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.10, 4), hairMat);
-    hairTuft.position.set(-0.04, 0.11, 0.06);
-    hairTuft.rotation.x = 0.4;
-    this.head.add(hairTuft);
-
-    this.mesh.add(this.head);
+    this.head.visible = false;
 
     // Arms
     this.leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), tunicMat);
-    this.leftArm.position.set(-0.15, 0.24, 0);
-    this.leftArm.castShadow = true;
-    this.mesh.add(this.leftArm);
-
+    this.leftArm.visible = false;
     this.rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), tunicMat);
-    this.rightArm.position.set(0.15, 0.24, 0);
-    this.rightArm.castShadow = true;
-    this.mesh.add(this.rightArm);
+    this.rightArm.visible = false;
 
     // Legs & Boots
     this.leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.08), pantsMat);
-    this.leftLeg.position.set(-0.06, 0.09, 0);
-    this.leftLeg.castShadow = true;
-    this.mesh.add(this.leftLeg);
-
-    const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.08, 0.11), bootMat);
-    leftBoot.position.set(0, -0.06, 0.02);
-    this.leftLeg.add(leftBoot);
-
+    this.leftLeg.visible = false;
     this.rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.08), pantsMat);
-    this.rightLeg.position.set(0.06, 0.09, 0);
-    this.rightLeg.castShadow = true;
-    this.mesh.add(this.rightLeg);
-
-    const rightBoot = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.08, 0.11), bootMat);
-    rightBoot.position.set(0, -0.06, 0.02);
-    this.rightLeg.add(rightBoot);
+    this.rightLeg.visible = false;
 
     this.mesh.scale.set(0.95, 0.95, 0.95);
     scene.add(this.mesh);
@@ -286,21 +255,17 @@ export class CharacterController {
 
     if (!this.isGrounded) {
       // Jump
-      this.leftLeg.rotation.x = -0.5;
-      this.rightLeg.rotation.x = -0.3;
-      this.leftArm.rotation.x = -1.1;
-      this.rightArm.rotation.x = -1.1;
-      this.torso.position.y = 0.25;
+      if (this.specialistMesh) {
+        this.specialistMesh.position.y = 0.08;
+        this.specialistMesh.rotation.x = -0.15;
+      }
     } else if (this.isMoving) {
       // Run Cycle
-      const swing = Math.sin(this.animTimer) * 0.75;
-      this.leftLeg.rotation.x = swing;
-      this.rightLeg.rotation.x = -swing;
-      this.leftArm.rotation.x = -swing * 0.85;
-      this.rightArm.rotation.x = swing * 0.85;
-
-      this.torso.position.y = 0.24 + Math.abs(Math.cos(this.animTimer)) * 0.03;
-      this.head.position.y = 0.44 + Math.abs(Math.cos(this.animTimer)) * 0.02;
+      if (this.specialistMesh) {
+        this.specialistMesh.position.y = Math.abs(Math.cos(this.animTimer)) * 0.05;
+        this.specialistMesh.rotation.z = Math.sin(this.animTimer) * 0.08;
+        this.specialistMesh.rotation.x = 0.06;
+      }
 
       // Dog Trot
       for (let i = 0; i < 4; i++) {
@@ -309,13 +274,12 @@ export class CharacterController {
       }
     } else {
       // Idle Breathing
-      const breath = Math.sin(this.animTimer) * 0.012;
-      this.leftLeg.rotation.x = 0;
-      this.rightLeg.rotation.x = 0;
-      this.leftArm.rotation.x = breath * 2;
-      this.rightArm.rotation.x = -breath * 2;
-      this.torso.position.y = 0.24 + breath;
-      this.head.position.y = 0.44 + breath * 1.5;
+      const breath = Math.sin(this.animTimer) * 0.015;
+      if (this.specialistMesh) {
+        this.specialistMesh.position.y = breath;
+        this.specialistMesh.rotation.z = 0;
+        this.specialistMesh.rotation.x = 0;
+      }
 
       for (let i = 0; i < 4; i++) {
         this.dogLegs[i].rotation.x = 0;

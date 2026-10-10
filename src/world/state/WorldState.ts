@@ -68,23 +68,79 @@ export class WorldState {
   public initDefaultWorld(): void {
     this.terrain.clear();
 
-    // 1. Center Landing start tile
-    this.placeDirect(0, 0, 'start', 0);
+    switch (this.selectedCulture) {
+      case 'bihar':
+        // Bihar: Village and craft-centred settlement layout
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'bihar_tile', 0);
+        this.placeDirect(0, 1, 'farm', 0);
+        this.placeDirect(-1, 1, 'forest', 0);
+        this.placeDirect(-1, 0, 'river', 0);
+        this.placeDirect(0, -1, 'haat', 0);
+        this.placeDirect(1, -1, 'pottery', 0);
+        this.placeDirect(0, -3, 'islet', 0);
+        break;
 
-    // 2. Cultural Starting Landmark Tile directly connected
-    const stateTileMap: Record<IndianState, string> = {
-      bihar: 'bihar_tile',
-      maharashtra: 'maha_tile',
-      west_bengal: 'bengal_tile',
-      karnataka: 'karnataka_tile',
-      gujarat: 'gujarat_tile',
-      rajasthan: 'rajasthan_tile'
-    };
-    const startingTileId = stateTileMap[this.selectedCulture] || 'bihar_tile';
-    this.placeDirect(1, 0, startingTileId, 0);
+      case 'maharashtra':
+        // Maharashtra: Rocky elevated terrain and fortified hill ridge
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'maha_tile', 0);
+        this.placeDirect(1, -1, 'hill', 0);
+        this.placeDirect(0, 1, 'quarry', 0);
+        this.placeDirect(-1, 1, 'village', 0);
+        this.placeDirect(0, -1, 'hill', 0);
+        this.placeDirect(-1, 0, 'farm', 0);
+        this.placeDirect(2, -2, 'islet', 0);
+        break;
 
-    // 3. Nearby treasure islet
-    this.placeDirect(0, -3, 'islet', 0);
+      case 'west_bengal':
+        // West Bengal: River delta waterfront ghats and festival spaces
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'bengal_tile', 0);
+        this.placeDirect(0, 1, 'river', 0);
+        this.placeDirect(-1, 1, 'river', 0);
+        this.placeDirect(-1, 0, 'farm', 0);
+        this.placeDirect(0, -1, 'village', 0);
+        this.placeDirect(1, -1, 'forest', 0);
+        this.placeDirect(-1, -2, 'islet', 0);
+        break;
+
+      case 'karnataka':
+        // Karnataka: Heritage granite courtyard and mandapa gardens
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'karnataka_tile', 0);
+        this.placeDirect(0, 1, 'haat', 0);
+        this.placeDirect(1, -1, 'quarry', 0);
+        this.placeDirect(-1, 0, 'forest', 0);
+        this.placeDirect(0, -1, 'village', 0);
+        this.placeDirect(-1, 1, 'meadow', 0);
+        this.placeDirect(2, -1, 'islet', 0);
+        break;
+
+      case 'gujarat':
+        // Gujarat: Merchant bazaar, textile trade, and stepwell town
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'gujarat_tile', 0);
+        this.placeDirect(0, 1, 'haat', 0);
+        this.placeDirect(1, -1, 'village', 0);
+        this.placeDirect(-1, 0, 'farm', 0);
+        this.placeDirect(0, -1, 'river', 0);
+        this.placeDirect(-1, 1, 'weaving', 0);
+        this.placeDirect(2, 0, 'islet', 0);
+        break;
+
+      case 'rajasthan':
+        // Rajasthan: Sandstone desert oasis, haveli quarter, and pottery
+        this.placeDirect(0, 0, 'start', 0);
+        this.placeDirect(1, 0, 'rajasthan_tile', 0);
+        this.placeDirect(0, 1, 'haat', 0);
+        this.placeDirect(1, -1, 'hill', 0);
+        this.placeDirect(-1, 0, 'farm', 0);
+        this.placeDirect(0, -1, 'village', 0);
+        this.placeDirect(-1, 1, 'pottery', 0);
+        this.placeDirect(0, -3, 'islet', 0);
+        break;
+    }
   }
 
   private placeDirect(q: number, r: number, defId: string, rotation = 0): void {

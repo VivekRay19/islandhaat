@@ -209,4 +209,397 @@ export class TextureGenerator {
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
+
+  // =========================================================================
+  // REGIONAL INDIAN CULTURAL TEXTURES
+  // =========================================================================
+
+  /** Bihar: Authentic Mithila / Madhubani hand-drawn motif canvas */
+  public static createMadhubaniTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Cream / handmade cow-dung wash paper base
+    ctx.fillStyle = '#fef3c7';
+    ctx.fillRect(0, 0, size, size);
+
+    // Madhubani geometric border
+    ctx.strokeStyle = '#1e1b4b';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(12, 12, size - 24, size - 24);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, size - 40, size - 40);
+
+    // Corner triangle hatching
+    for (let i = 0; i < 4; i++) {
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+      ctx.rotate((i * Math.PI) / 2);
+      ctx.beginPath();
+      ctx.moveTo(-size / 2 + 24, -size / 2 + 24);
+      ctx.lineTo(-size / 2 + 80, -size / 2 + 24);
+      ctx.lineTo(-size / 2 + 24, -size / 2 + 80);
+      ctx.closePath();
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Central Sacred Lotus & Fish Motif (Characteristic Mithila art)
+    const cx = size / 2;
+    const cy = size / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 70, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fill();
+    ctx.strokeStyle = '#09090b';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Lotus petals with fine double-line ink drawing
+    for (let p = 0; p < 8; p++) {
+      const a = (p * Math.PI) / 4;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.ellipse(95, 0, 32, 18, 0, 0, Math.PI * 2);
+      ctx.fillStyle = p % 2 === 0 ? '#b91c1c' : '#047857';
+      ctx.fill();
+      ctx.stroke();
+      // Fine inner hatching
+      ctx.beginPath();
+      ctx.moveTo(70, 0);
+      ctx.lineTo(120, 0);
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** Maharashtra: Paithani Zari Silk with Peacock motif & gold brocade */
+  public static createPaithaniZariTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Rich royal Paithani purple / crimson silk base
+    ctx.fillStyle = '#831843';
+    ctx.fillRect(0, 0, size, size);
+
+    // Golden Zari grid pattern
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 3;
+    const step = 64;
+    for (let x = 0; x <= size; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= size; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y);
+      ctx.stroke();
+    }
+
+    // Peacock (Mor) gold butti in grid centers
+    for (let x = step / 2; x < size; x += step) {
+      for (let y = step / 2; y < size; y += step) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** West Bengal: Bishnupur Carved Terracotta relief brick panel */
+  public static createTerracottaReliefTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#9a3412'; // deep burnt terracotta clay
+    ctx.fillRect(0, 0, size, size);
+
+    // Carved terracotta tile plaques
+    const cols = 4;
+    const rows = 4;
+    const tw = size / cols;
+    const th = size / rows;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * tw;
+        const y = r * th;
+        // Tile bevel
+        ctx.fillStyle = '#c2410c';
+        ctx.fillRect(x + 4, y + 4, tw - 8, th - 8);
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x + 4, y + 4, tw - 8, th - 8);
+
+        // Floral rosette carved medallion
+        const mx = x + tw / 2;
+        const my = y + th / 2;
+        ctx.fillStyle = '#ea580c';
+        ctx.beginPath();
+        ctx.arc(mx, my, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#7c2d12';
+        ctx.beginPath();
+        ctx.arc(mx, my, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** Karnataka: Mysore Gilded Floral & Channapatna Lacquer sheen */
+  public static createMysoreGoldTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep Mysore rosewood / royal green lacquer
+    ctx.fillStyle = '#064e3b';
+    ctx.fillRect(0, 0, size, size);
+
+    // Gold leaf filigree scrolling
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, 60 + i * 45, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Carved rosettes
+    const points = 12;
+    for (let i = 0; i < points; i++) {
+      const a = (i * Math.PI * 2) / points;
+      const x = size / 2 + Math.cos(a) * 140;
+      const y = size / 2 + Math.sin(a) * 140;
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(x, y, 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** Gujarat: Patola Double-Ikat geometric textile & Bandhani dots */
+  public static createPatolaIkatTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Crimson red Patola silk base
+    ctx.fillStyle = '#991b1b';
+    ctx.fillRect(0, 0, size, size);
+
+    // Stepped ikat lozenges (characteristic Patan Patola)
+    const step = 64;
+    for (let y = 0; y < size; y += step) {
+      for (let x = 0; x < size; x += step) {
+        ctx.fillStyle = (x / step + y / step) % 2 === 0 ? '#047857' : '#d97706';
+        ctx.beginPath();
+        ctx.moveTo(x + step / 2, y + 4);
+        ctx.lineTo(x + step - 4, y + step / 2);
+        ctx.lineTo(x + step / 2, y + step - 4);
+        ctx.lineTo(x + 4, y + step / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Bandhani white tie-dye dot in center
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x + step / 2, y + step / 2, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** Rajasthan: Jaipur Cobalt Blue Pottery Glaze */
+  public static createBluePotteryTexture(): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Glazed milky white pottery base
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, size, size);
+
+    // Deep Cobalt Blue & Turquoise Persian-Mughal floral vines
+    const cx = size / 2;
+    const cy = size / 2;
+
+    ctx.strokeStyle = '#1d4ed8'; // Cobalt
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 120, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#06b6d4'; // Turquoise
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 80, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 8-petal central floral rosette
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a);
+      ctx.fillStyle = '#1e40af';
+      ctx.beginPath();
+      ctx.ellipse(45, 0, 22, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0891b2';
+      ctx.beginPath();
+      ctx.arc(80, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /** State-specific Terrain Surface Texture */
+  public static createStateTerrainTexture(state: string): THREE.CanvasTexture {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    switch (state) {
+      case 'bihar':
+        // Fertile alluvial earthen soil with clay courtyards
+        ctx.fillStyle = '#a16207';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 4000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(234, 179, 8, 0.25)' : 'rgba(113, 63, 18, 0.35)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 3, 3);
+        }
+        break;
+
+      case 'maharashtra':
+        // Weathered dark basalt rock plateau
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 5000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(15, 23, 42, 0.45)' : 'rgba(100, 116, 139, 0.3)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 4);
+        }
+        break;
+
+      case 'west_bengal':
+        // Lush delta riverbank fertile silt and moss
+        ctx.fillStyle = '#15803d';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 4500; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(34, 197, 94, 0.35)' : 'rgba(21, 128, 61, 0.4)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 3, 2);
+        }
+        break;
+
+      case 'karnataka':
+        // Warm granite bedrock with red laterite earth
+        ctx.fillStyle = '#991b1b';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 4500; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(217, 119, 6, 0.35)' : 'rgba(120, 53, 15, 0.4)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 3, 3);
+        }
+        break;
+
+      case 'gujarat':
+        // Semi-arid alluvial earth and courtyard lime
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 4000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(254, 243, 199, 0.3)' : 'rgba(180, 83, 9, 0.35)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 3, 2);
+        }
+        break;
+
+      case 'rajasthan':
+        // Golden Thar sand and banded sandstone
+        ctx.fillStyle = '#eab308';
+        ctx.fillRect(0, 0, size, size);
+        for (let i = 0; i < 5000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(254, 240, 138, 0.45)' : 'rgba(202, 138, 4, 0.4)';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+        break;
+
+      default:
+        ctx.fillStyle = '#4ca630';
+        ctx.fillRect(0, 0, size, size);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
 }

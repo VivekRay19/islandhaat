@@ -55,6 +55,27 @@ export class Materials {
   public slotInvalid: THREE.MeshBasicMaterial;
   public ghostMat: THREE.MeshStandardMaterial;
 
+  // Regional Cultural Materials
+  public madhubaniCanvas: THREE.MeshStandardMaterial;
+  public paithaniZari: THREE.MeshStandardMaterial;
+  public terracottaRelief: THREE.MeshStandardMaterial;
+  public mysoreGold: THREE.MeshStandardMaterial;
+  public patolaIkat: THREE.MeshStandardMaterial;
+  public bluePottery: THREE.MeshStandardMaterial;
+
+  // Regional Architecture & Rocks
+  public sandstone: THREE.MeshStandardMaterial;
+  public basaltRock: THREE.MeshStandardMaterial;
+  public graniteStone: THREE.MeshStandardMaterial;
+  public ochrePlaster: THREE.MeshStandardMaterial;
+  public bengalBrick: THREE.MeshStandardMaterial;
+  public saffronStandard: THREE.MeshStandardMaterial;
+
+  // State terrain maps
+  private stateTerrains: Map<string, THREE.MeshStandardMaterial> = new Map();
+  private stateCliffs: Map<string, THREE.MeshStandardMaterial> = new Map();
+  private stateStratas: Map<string, THREE.MeshStandardMaterial> = new Map();
+
   private constructor() {
     // Generate Procedural Textures
     const grassTex = TextureGenerator.createGrassTexture();
@@ -309,6 +330,151 @@ export class Materials {
       opacity: 0.6,
       roughness: 0.3
     });
+
+    // --- REGIONAL CULTURAL MATERIALS ---
+    this.madhubaniCanvas = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createMadhubaniTexture(),
+      roughness: 0.85,
+      metalness: 0.0
+    });
+
+    this.paithaniZari = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createPaithaniZariTexture(),
+      roughness: 0.45,
+      metalness: 0.4
+    });
+
+    this.terracottaRelief = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createTerracottaReliefTexture(),
+      roughness: 0.7,
+      metalness: 0.05
+    });
+
+    this.mysoreGold = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createMysoreGoldTexture(),
+      roughness: 0.35,
+      metalness: 0.45
+    });
+
+    this.patolaIkat = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createPatolaIkatTexture(),
+      roughness: 0.6,
+      metalness: 0.05
+    });
+
+    this.bluePottery = new THREE.MeshStandardMaterial({
+      map: TextureGenerator.createBluePotteryTexture(),
+      roughness: 0.25,
+      metalness: 0.1
+    });
+
+    this.sandstone = new THREE.MeshStandardMaterial({
+      color: 0xeab308,
+      roughness: 0.8,
+      metalness: 0.05
+    });
+
+    this.basaltRock = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.88,
+      metalness: 0.15
+    });
+
+    this.graniteStone = new THREE.MeshStandardMaterial({
+      color: 0xa8a29e,
+      roughness: 0.82,
+      metalness: 0.1
+    });
+
+    this.ochrePlaster = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      roughness: 0.9,
+      metalness: 0.0
+    });
+
+    this.bengalBrick = new THREE.MeshStandardMaterial({
+      color: 0xb45309,
+      roughness: 0.8,
+      metalness: 0.05
+    });
+
+    this.saffronStandard = new THREE.MeshStandardMaterial({
+      color: 0xf97316,
+      roughness: 0.7,
+      metalness: 0.0
+    });
+
+    // Populate State Terrains & Cliffs
+    const states = ['bihar', 'maharashtra', 'west_bengal', 'karnataka', 'gujarat', 'rajasthan'];
+    for (const st of states) {
+      const terrainTex = TextureGenerator.createStateTerrainTexture(st);
+      terrainTex.repeat.set(2, 2);
+
+      let col = 0x5cb83c;
+      let cliffCol = 0x64748b;
+      let strataCol = 0x85532d;
+      let roughness = 0.85;
+
+      if (st === 'bihar') {
+        col = 0xca8a04; // Warm alluvial earth / clay
+        cliffCol = 0x854d0e; // Silt cliff
+        strataCol = 0x713f12;
+      } else if (st === 'maharashtra') {
+        col = 0x334155; // Dark basalt plateau
+        cliffCol = 0x1e293b; // Deep basalt rock
+        strataCol = 0x0f172a;
+        roughness = 0.92;
+      } else if (st === 'west_bengal') {
+        col = 0x16a34a; // Lush riverbank green
+        cliffCol = 0x78350f; // River clay
+        strataCol = 0x451a03;
+      } else if (st === 'karnataka') {
+        col = 0xb45309; // Red laterite / granite
+        cliffCol = 0x78716c; // Golden grey granite
+        strataCol = 0x57534e;
+      } else if (st === 'gujarat') {
+        col = 0xd97706; // Semi-arid courtyard earth
+        cliffCol = 0xa16207;
+        strataCol = 0x78350f;
+      } else if (st === 'rajasthan') {
+        col = 0xfacc15; // Golden Thar sand
+        cliffCol = 0xca8a04; // Sandstone strata
+        strataCol = 0xa16207;
+        roughness = 0.95;
+      }
+
+      this.stateTerrains.set(st, new THREE.MeshStandardMaterial({
+        map: terrainTex,
+        color: col,
+        roughness: roughness,
+        metalness: 0.05
+      }));
+
+      this.stateCliffs.set(st, new THREE.MeshStandardMaterial({
+        color: cliffCol,
+        roughness: 0.9,
+        metalness: 0.1,
+        flatShading: true
+      }));
+
+      this.stateStratas.set(st, new THREE.MeshStandardMaterial({
+        color: strataCol,
+        roughness: 0.95,
+        metalness: 0.05
+      }));
+    }
+  }
+
+  public getTerrainMaterial(state: string): THREE.MeshStandardMaterial {
+    return this.stateTerrains.get(state) || this.grass;
+  }
+
+  public getCliffMaterial(state: string): THREE.MeshStandardMaterial {
+    return this.stateCliffs.get(state) || this.cliffRock;
+  }
+
+  public getBaseStrataMaterial(state: string): THREE.MeshStandardMaterial {
+    return this.stateStratas.get(state) || this.earth;
   }
 
   public static get(): Materials {

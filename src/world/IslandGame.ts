@@ -78,7 +78,7 @@ export class IslandGame {
     this.cameraCtrl = new CameraController(window.innerWidth / window.innerHeight);
     this.water = new WaterSystem(this.scene);
     this.dayNight = new DayNightSystem(this.scene);
-    this.character = new CharacterController(this.scene);
+    this.character = new CharacterController(this.scene, this.state.selectedCulture);
     this.character.setPosition(0, 0, this.state.terrain);
 
     this.scene.add(this.slotMarkers);
@@ -141,7 +141,7 @@ export class IslandGame {
     const fullDef = TILE_LIBRARY[tile.defId];
     if (!fullDef) return;
 
-    const mesh = TileMeshBuilder.buildTileMesh(fullDef, tile.rotation, tile.isDamaged);
+    const mesh = TileMeshBuilder.buildTileMesh(fullDef, tile.rotation, tile.isDamaged, this.state.selectedCulture);
     const cx = SQRT3 * HEX_R * (tile.q + tile.r / 2);
     const cz = 1.5 * HEX_R * tile.r;
 
@@ -195,7 +195,7 @@ export class IslandGame {
     const def = this.state.getSelectedTile();
     if (!def) return;
 
-    this.ghostMesh = TileMeshBuilder.buildGhostMesh(def, this.state.currentRotation);
+    this.ghostMesh = TileMeshBuilder.buildGhostMesh(def, this.state.currentRotation, this.state.selectedCulture);
     const cx = SQRT3 * HEX_R * (this.hoveredSlot.q + this.hoveredSlot.r / 2);
     const cz = 1.5 * HEX_R * this.hoveredSlot.r;
     this.ghostMesh.position.set(cx, 0.08, cz);

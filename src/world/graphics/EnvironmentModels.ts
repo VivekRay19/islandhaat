@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Materials } from './Materials';
 import { LandmarkKind } from '../data/tileLibrary';
 import { CulturalModelBuilder } from './CulturalModelBuilder';
+import { IndianState } from '../culture/CultureTypes';
+import { CulturalArchitectureBuilder } from './CulturalArchitectureBuilder';
 
 export class EnvironmentModels {
   private static mats = Materials.get();
@@ -710,12 +712,14 @@ export class EnvironmentModels {
     return { group, lid };
   }
 
-  public static buildLandmark(kind: LandmarkKind): THREE.Group {
+  public static buildLandmark(kind: LandmarkKind, culture: IndianState = 'bihar'): THREE.Group {
     switch (kind) {
       case 'farmhouse':
-        return this.createFarm();
+        return CulturalArchitectureBuilder.createFarm(culture);
       case 'houses':
-        return this.createHouses();
+        return CulturalArchitectureBuilder.createHouse(culture);
+      case 'haat':
+        return CulturalArchitectureBuilder.createMarket(culture);
       case 'weaving_hut':
         return this.createWeavingHut();
       case 'pottery':
@@ -724,8 +728,6 @@ export class EnvironmentModels {
         return this.createLumberCamp();
       case 'quarry':
         return this.createQuarry();
-      case 'haat':
-        return this.createHaatMarket();
       case 'pavilion':
         return this.createPavilion();
       case 'shrine':

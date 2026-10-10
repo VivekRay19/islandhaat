@@ -5,6 +5,8 @@ import { InteractableTarget } from '../interaction/InteractionSystem';
 import { TILE_LIBRARY } from '../data/tileLibrary';
 import { CULTURE_PROFILES } from '../culture/CultureRegistry';
 import { IndianState } from '../culture/CultureTypes';
+import { CulturalAssetDiagnostics } from '../culture/CulturalAssetDiagnostics';
+import { CultureComparisonViewer } from '../culture/CultureComparisonViewer';
 
 export class WorldUI {
   private container: HTMLElement;
@@ -125,13 +127,27 @@ export class WorldUI {
       display: flex;
       align-items: center;
       gap: 8px;
+      cursor: pointer;
       box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      transition: transform 0.15s;
     `;
+    this.cultureBadge.title = 'Click or press F2 to open Asset Diagnostics';
     this.cultureBadge.innerHTML = `
       <span style="font-size:14px; font-weight:800; color:${profile.palette.primary};">${profile.stateName}</span>
       <span style="font-size:11px; color:#cbd5e1;">| ${profile.specialist.roleTitle}</span>
       <span style="font-size:11px; font-weight:800; color:#4ade80;">(⚡ ${profile.specialist.abilityName})</span>
+      <span style="font-size:10px; color:#38bdf8; background:rgba(56,189,248,0.15); padding:2px 6px; border-radius:6px;">📊 F2</span>
     `;
+    this.cultureBadge.onclick = () => this.showAssetDiagnosticModal();
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'F2') {
+        this.showAssetDiagnosticModal();
+      } else if (e.key === 'F3') {
+        CultureComparisonViewer.openComparisonGallery();
+      }
+    });
+
     topLeft.appendChild(this.cultureBadge);
     topBar.appendChild(topLeft);
 
@@ -638,5 +654,47 @@ export class WorldUI {
     });
 
     setTimeout(() => el.remove(), 850);
+  }
+
+  public showAssetDiagnosticModal(): void {
+    const existing = document.getElementById('ingame-asset-diagnostic-modal');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    const report = CulturalAssetDiagnostics.getReport(this.state.selectedCulture);
+
+    const modal = document.createElement('div');
+    modal.id = 'ingame-asset-diagnostic-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      max-width: 90vw;
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid #38bdf8;
+      border-radius: 16px;
+      padding: 24px;
+      z-index: 200;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.85);
+      font-family: monospace;
+      color: #38bdf8;
+      pointer-events: auto;
+    `;
+
+    modal.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-size:15px; font-weight:800; color:#facc15;">LIVE ASSET VERIFICATION (F2)</span>
+        <button id="close-ingame-diag-btn" style="background:transparent; border:none; color:#cbd5e1; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <pre style="white-space:pre-wrap; font-size:12px; line-height:1.45; background:rgba(0,0,0,0.6); padding:14px; border-radius:10px; max-height:420px; overflow-y:auto; margin:0;">${report}</pre>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeBtn = modal.querySelector('#close-ingame-diag-btn') as HTMLElement;
+    closeBtn.onclick = () => modal.remove();
   }
 }

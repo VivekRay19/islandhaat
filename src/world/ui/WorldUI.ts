@@ -42,6 +42,8 @@ export class WorldUI {
 
   // Modals
   private haatModal!: HTMLElement;
+  private timeModal: HTMLElement | null = null;
+  public activeModal: 'none' | 'haat' | 'time' | 'diagnostics' = 'none';
 
   private onTileSelectCallback?: (index: number) => void;
   private onRotateCallback?: () => void;
@@ -231,7 +233,8 @@ export class WorldUI {
     this.clockTime.innerText = '10:24 AM';
     this.clockWidget.appendChild(this.clockIcon);
     this.clockWidget.appendChild(this.clockTime);
-    this.clockWidget.onclick = () => this.dayNight.toggleFreeze();
+    this.clockWidget.title = 'Click to open Time Settings & Day/Night controls';
+    this.clockWidget.onclick = () => this.showTimeSettingsModal();
     topBar.appendChild(this.clockWidget);
 
     // Quest Tracker Widget (Top-Left under Header)
@@ -380,6 +383,9 @@ export class WorldUI {
         <div style="width:40px;height:40px;background:rgba(15,23,42,0.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;">S</div>
         <div style="width:40px;height:40px;background:rgba(15,23,42,0.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;">D</div>
       </div>
+      <div style="margin-top:2px;background:rgba(15,23,42,0.75);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:4px 12px;font-weight:800;font-size:11px;color:#38bdf8;letter-spacing:0.5px;">
+        SPACE: JUMP
+      </div>
     `;
     this.container.appendChild(this.wasdOverlay);
 
@@ -496,7 +502,7 @@ export class WorldUI {
     // 1. Clock & Phase update
     const phaseInfo = this.dayNight.getPhaseInfo();
     this.clockIcon.innerText = phaseInfo.symbol;
-    this.clockTime.innerText = phaseInfo.phase === 'night' ? '8:47 PM' : (phaseInfo.phase === 'dusk' ? '6:15 PM' : '10:24 AM');
+    this.clockTime.innerText = `${phaseInfo.timeString}${this.dayNight.isFrozen ? ' ⏸' : ''}`;
 
     // 2. Resource & Culture score counters
     this.coinVal.innerText = `${this.state.coins}`;
@@ -552,6 +558,7 @@ export class WorldUI {
   }
 
   public showHaatTradeModal(onClose: () => void): void {
+    this.activeModal = 'haat';
     this.haatModal.style.display = 'flex';
 
     // Inter-state cultural exchange items from other states
@@ -595,6 +602,7 @@ export class WorldUI {
 
     document.getElementById('close-haat-btn')!.onclick = () => {
       this.haatModal.style.display = 'none';
+      this.activeModal = 'none';
       onClose();
     };
 
@@ -626,6 +634,7 @@ export class WorldUI {
           this.state.saveToStorage();
         }
         this.haatModal.style.display = 'none';
+        this.activeModal = 'none';
         onClose();
       };
     });
@@ -656,13 +665,131 @@ export class WorldUI {
     setTimeout(() => el.remove(), 850);
   }
 
+  public showTimeSettingsModal(): void {
+    if (this.timeModal) {
+      this.timeModal.remove();
+      this.timeModal = null;
+      this.activeModal = 'none';
+      return;
+    }
+
+    this.activeModal = 'time';
+    const modal = document.createElement('div');
+    modal.id = 'time-settings-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 440px;
+      max-width: 90vw;
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(18px);
+      border: 2px solid #f59e0b;
+      border-radius: 20px;
+      padding: 24px 28px;
+      z-index: 150;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.85);
+      color: #fff;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    `;
+
+    const phase = this.dayNight.getPhaseInfo();
+
+    modal.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="margin:0; font-size:18px; font-weight:900; color:#facc15; display:flex; gap:8px; align-items:center;">
+            ⏰ Time & Day-Night Controls
+          </h3>
+          <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Current: <span id="time-dialog-current" style="color:#fde047; font-weight:800;">${phase.timeString} (${phase.label})</span></div>
+        </div>
+        <button id="close-time-modal-btn" style="background:transparent; border:none; color:#cbd5e1; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.06); padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:10px;">
+        <div style="font-size:12px; font-weight:800; color:#38bdf8; letter-spacing:0.5px;">1. TIME CYCLE PROGRESSION</div>
+        <div style="display:flex; gap:8px;">
+          <button id="time-freeze-toggle-btn" style="flex:1; background:${this.dayNight.isFrozen ? '#dc2626' : '#16a34a'}; border:none; border-radius:10px; color:#fff; font-weight:800; font-size:12px; padding:10px; cursor:pointer;">
+            ${this.dayNight.isFrozen ? '▶ Resume Cycle' : '⏸ Hold / Freeze Time'}
+          </button>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
+          <span style="font-size:11px; color:#94a3b8; font-weight:700;">Speed:</span>
+          <button class="time-speed-btn" data-speed="slow" style="flex:1; background:${this.dayNight.cycleSpeed === 'slow' ? '#f59e0b' : 'rgba(255,255,255,0.1)'}; color:${this.dayNight.cycleSpeed === 'slow' ? '#0f172a' : '#fff'}; border:none; border-radius:8px; padding:6px; font-weight:800; font-size:11px; cursor:pointer;">Slow (40m)</button>
+          <button class="time-speed-btn" data-speed="normal" style="flex:1; background:${this.dayNight.cycleSpeed === 'normal' ? '#f59e0b' : 'rgba(255,255,255,0.1)'}; color:${this.dayNight.cycleSpeed === 'normal' ? '#0f172a' : '#fff'}; border:none; border-radius:8px; padding:6px; font-weight:800; font-size:11px; cursor:pointer;">Normal (20m)</button>
+          <button class="time-speed-btn" data-speed="fast" style="flex:1; background:${this.dayNight.cycleSpeed === 'fast' ? '#f59e0b' : 'rgba(255,255,255,0.1)'}; color:${this.dayNight.cycleSpeed === 'fast' ? '#0f172a' : '#fff'}; border:none; border-radius:8px; padding:6px; font-weight:800; font-size:11px; cursor:pointer;">Fast (5m)</button>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.06); padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:10px;">
+        <div style="font-size:12px; font-weight:800; color:#38bdf8; letter-spacing:0.5px;">2. SET EXACT TIME OF DAY</div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px;">
+          <button class="time-preset-btn" data-h="6" data-m="30" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">🌅 06:30 AM (Dawn)</button>
+          <button class="time-preset-btn" data-h="12" data-m="0" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">☀️ 12:00 PM (Noon)</button>
+          <button class="time-preset-btn" data-h="17" data-m="45" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">🌄 05:45 PM (Dusk)</button>
+          <button class="time-preset-btn" data-h="21" data-m="0" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">🌙 09:00 PM (Night)</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    this.timeModal = modal;
+
+    const closeBtn = modal.querySelector('#close-time-modal-btn') as HTMLElement;
+    closeBtn.onclick = () => {
+      modal.remove();
+      this.timeModal = null;
+      this.activeModal = 'none';
+    };
+
+    const freezeBtn = modal.querySelector('#time-freeze-toggle-btn') as HTMLElement;
+    freezeBtn.onclick = () => {
+      const isFrozen = this.dayNight.toggleFreeze();
+      freezeBtn.style.background = isFrozen ? '#dc2626' : '#16a34a';
+      freezeBtn.innerText = isFrozen ? '▶ Resume Cycle' : '⏸ Hold / Freeze Time';
+    };
+
+    const speedBtns = modal.querySelectorAll('.time-speed-btn');
+    speedBtns.forEach((btn) => {
+      (btn as HTMLElement).onclick = (e) => {
+        const speed = (e.currentTarget as HTMLElement).getAttribute('data-speed') as any;
+        this.dayNight.setSpeed(speed);
+        speedBtns.forEach(b => {
+          (b as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+          (b as HTMLElement).style.color = '#fff';
+        });
+        (btn as HTMLElement).style.background = '#f59e0b';
+        (btn as HTMLElement).style.color = '#0f172a';
+      };
+    });
+
+    const presetBtns = modal.querySelectorAll('.time-preset-btn');
+    presetBtns.forEach((btn) => {
+      (btn as HTMLElement).onclick = (e) => {
+        const el = e.currentTarget as HTMLElement;
+        const h = parseInt(el.getAttribute('data-h') || '12', 10);
+        const m = parseInt(el.getAttribute('data-m') || '0', 10);
+        this.dayNight.setExactTime(h, m);
+        const cur = modal.querySelector('#time-dialog-current') as HTMLElement;
+        const newPhase = this.dayNight.getPhaseInfo();
+        if (cur) cur.innerText = `${newPhase.timeString} (${newPhase.label})`;
+        this.showFloatingReward(`Time set to ${newPhase.timeString}`, window.innerWidth / 2, window.innerHeight / 2);
+      };
+    });
+  }
+
   public showAssetDiagnosticModal(): void {
     const existing = document.getElementById('ingame-asset-diagnostic-modal');
     if (existing) {
       existing.remove();
+      this.activeModal = 'none';
       return;
     }
 
+    this.activeModal = 'diagnostics';
     const report = CulturalAssetDiagnostics.getReport(this.state.selectedCulture);
 
     const modal = document.createElement('div');
@@ -695,7 +822,10 @@ export class WorldUI {
     document.body.appendChild(modal);
 
     const closeBtn = modal.querySelector('#close-ingame-diag-btn') as HTMLElement;
-    closeBtn.onclick = () => modal.remove();
+    closeBtn.onclick = () => {
+      modal.remove();
+      this.activeModal = 'none';
+    };
   }
 
   public destroy(): void {
@@ -706,5 +836,11 @@ export class WorldUI {
     if (diagModal) {
       diagModal.remove();
     }
+    if (this.timeModal) {
+      this.timeModal.remove();
+      this.timeModal = null;
+    }
+    this.activeModal = 'none';
   }
 }
+

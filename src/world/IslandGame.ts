@@ -87,6 +87,7 @@ export class IslandGame {
     this.dayNight = new DayNightSystem(this.scene);
     this.character = new CharacterController(this.scene, this.state.selectedCulture);
     this.character.setPosition(0, 0, this.state.terrain);
+    this.character.setVisible(false); // Character is only visible in Explore Mode
 
     this.scene.add(this.slotMarkers);
 
@@ -121,6 +122,17 @@ export class IslandGame {
   }
 
   private setupTreasureChest(): void {
+    // Ground chest accurately on the cultural islet tile
+    const isletTile = this.state.terrain.getAllTiles().find(t => t.defId === 'islet');
+    if (isletTile) {
+      const cx = SQRT3 * HEX_R * (isletTile.q + isletTile.r / 2);
+      const cz = 1.5 * HEX_R * isletTile.r;
+      const cy = this.state.terrain.getHeight(cx, cz);
+      this.chestPos.set(cx, cy, cz);
+    } else {
+      this.chestPos.set(0, this.state.terrain.getHeight(0, -4.5), -4.5);
+    }
+
     const { group, lid } = EnvironmentModels.createTreasureChest();
     group.position.copy(this.chestPos);
     this.scene.add(group);
@@ -210,6 +222,9 @@ export class IslandGame {
     this.scene.add(this.ghostMesh);
   }
 
+  /**
+   * Mode transitions are strictly button-driven only (via Enter Island / Exit Character buttons)
+   */
   public toggleGameMode(): void {
     if (this.cameraCtrl.mode === 'build') {
       this.cameraCtrl.switchToExplore(this.character);
@@ -219,11 +234,20 @@ export class IslandGame {
         this.ghostMesh = null;
       }
       this.slotMarkers.visible = false;
+      this.clearPressedKeys();
     } else {
       this.cameraCtrl.switchToBuild();
+      this.character.setVisible(false);
       this.slotMarkers.visible = true;
       this.updateAvailableSlotMarkers();
+      this.clearPressedKeys();
     }
+  }
+
+  private clearPressedKeys(): void {
+    this.keys = {};
+    this.character.inputVector.set(0, 0);
+    this.character.jumpRequested = false;
   }
 
   private handleSlotClick(q: number, r: number): void {
@@ -291,6 +315,11 @@ export class IslandGame {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    addEvt(window, 'blur', () => {
+      this.clearPressedKeys();
+      this.isMouseDown = false;
+    });
+
     // Mouse move & raycast
     addEvt(window, 'mousemove', (e: Event) => {
       const me = e as MouseEvent;
@@ -314,6 +343,9 @@ export class IslandGame {
 
     addEvt(window, 'mousedown', (e: Event) => {
       const me = e as MouseEvent;
+      // If modal is active, do not interact with 3D scene
+      if (this.ui.activeModal !== 'none') return;
+
       this.isMouseDown = true;
       this.lastMouseX = me.clientX;
       this.lastMouseY = me.clientY;
@@ -336,6 +368,7 @@ export class IslandGame {
 
     addEvt(window, 'wheel', (e: Event) => {
       const we = e as WheelEvent;
+      if (this.ui.activeModal !== 'none') return;
       if (this.cameraCtrl.mode === 'build') {
         this.cameraCtrl.zoomBuildCamera(we.deltaY);
       }
@@ -344,27 +377,54 @@ export class IslandGame {
     // Keyboard controls
     addEvt(window, 'keydown', (e: Event) => {
       const ke = e as KeyboardEvent;
+
+      // When text inputs or modals are focused, do not trigger gameplay actions
+      const targetTag = (ke.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select') {
+        return;
+      }
+      if (this.ui.activeModal !== 'none') {
+        if (ke.code === 'Escape') {
+          // Allow closing active modals via Escape
+          const closeDiag = document.getElementById('close-ingame-diag-btn');
+          const closeTime = document.getElementById('close-time-modal-btn');
+          const closeHaat = document.getElementById('close-haat-btn');
+          if (closeDiag) closeDiag.click();
+          if (closeTime) closeTime.click();
+          if (closeHaat) closeHaat.click();
+        }
+        return;
+      }
+
       this.keys[ke.code] = true;
 
-      if (ke.code === 'KeyR' && this.cameraCtrl.mode === 'build') {
-        this.state.rotateCurrentTile();
-        this.audio.playTileRotate();
-        this.updateGhost();
-      }
-
-      if (ke.code === 'KeyE') {
-        const activeTarget = this.interactions.getActiveTarget();
-        if (activeTarget) this.handleInteract(activeTarget);
-      }
-
-      if (ke.code === 'Escape') {
-        if (this.cameraCtrl.mode === 'explore') {
-          this.toggleGameMode();
+      // Build Mode Specific Keys
+      if (this.cameraCtrl.mode === 'build') {
+        if (ke.code === 'KeyR') {
+          this.state.rotateCurrentTile();
+          this.audio.playTileRotate();
+          this.updateGhost();
+        }
+        // Spacebar must NEVER switch modes or trigger anything in Build Mode
+        if (ke.code === 'Space') {
+          ke.preventDefault();
         }
       }
 
-      if (ke.code === 'Space') {
-        this.character.jumpRequested = true;
+      // Explore Mode Specific Keys
+      if (this.cameraCtrl.mode === 'explore') {
+        if (ke.code === 'KeyE') {
+          const activeTarget = this.interactions.getActiveTarget();
+          if (activeTarget) this.handleInteract(activeTarget);
+        }
+
+        // Spacebar strictly triggers Jump in Explore Mode
+        if (ke.code === 'Space') {
+          ke.preventDefault();
+          if (!ke.repeat) {
+            this.character.jumpRequested = true;
+          }
+        }
       }
     });
 
@@ -401,17 +461,19 @@ export class IslandGame {
 
     const dt = Math.min(this.clock.getDelta(), 0.1);
 
-    // 1. Process Input Vector
+    // 1. Process Input Vector (Only active in Explore Mode without modal)
     let ix = 0;
     let iy = 0;
-    if (this.keys['KeyW'] || this.keys['ArrowUp']) iy += 1;
-    if (this.keys['KeyS'] || this.keys['ArrowDown']) iy -= 1;
-    if (this.keys['KeyA'] || this.keys['ArrowLeft']) ix -= 1;
-    if (this.keys['KeyD'] || this.keys['ArrowRight']) ix += 1;
+    if (this.cameraCtrl.mode === 'explore' && this.ui.activeModal === 'none') {
+      if (this.keys['KeyW'] || this.keys['ArrowUp']) iy += 1;
+      if (this.keys['KeyS'] || this.keys['ArrowDown']) iy -= 1;
+      if (this.keys['KeyA'] || this.keys['ArrowLeft']) ix -= 1;
+      if (this.keys['KeyD'] || this.keys['ArrowRight']) ix += 1;
+    }
     this.character.inputVector.set(ix, iy);
 
     // 2. Throttled Raycasting for Slot Hovering (~30Hz)
-    if (this.cameraCtrl.mode === 'build') {
+    if (this.cameraCtrl.mode === 'build' && this.ui.activeModal === 'none') {
       this.hoverThrottleTime += dt;
       if (this.hoverThrottleTime >= 0.033) {
         this.hoverThrottleTime = 0;
@@ -423,16 +485,20 @@ export class IslandGame {
     this.tweens.update(dt);
     this.water.update(dt);
     this.dayNight.update(dt);
-    this.character.update(dt, this.cameraCtrl.exploreYaw, this.state.terrain);
+    if (this.cameraCtrl.mode === 'explore') {
+      this.character.update(dt, this.cameraCtrl.exploreYaw, this.state.terrain);
+    }
     this.cameraCtrl.update(dt, this.character);
 
     // 4. Update Proximity Interactions
-    const target = this.interactions.findNearestInteractable(
-      this.character,
-      this.state.terrain.getAllTiles(),
-      this.chestPos,
-      this.state.activeEvent?.targetTileKey
-    );
+    const target = this.cameraCtrl.mode === 'explore'
+      ? this.interactions.findNearestInteractable(
+          this.character,
+          this.state.terrain.getAllTiles(),
+          this.chestPos,
+          this.state.activeEvent?.targetTileKey
+        )
+      : null;
 
     // 5. Update UI
     this.ui.update(this.cameraCtrl.mode, target);

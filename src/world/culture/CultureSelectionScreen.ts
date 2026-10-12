@@ -550,10 +550,10 @@ export class CultureSelectionScreen {
 
     // 4. Specialist Character Model
     const specialist = CulturalSpecialistBuilder.createSpecialist(state);
-    specialist.scale.set(0.62, 0.62, 0.62);
-    specialist.position.set(0.18, 0, 0.22);
-    specialist.rotation.y = -Math.PI / 4;
-    this.previewDioramaGroup.add(specialist);
+    specialist.root.scale.set(0.62, 0.62, 0.62);
+    specialist.root.position.set(0.18, 0, 0.22);
+    specialist.root.rotation.y = -Math.PI / 4;
+    this.previewDioramaGroup.add(specialist.root);
 
     // 5. Regional Landscape Prop
     const prop = CulturalVegetationBuilder.createLandscapeProp(state, 0);

@@ -3,23 +3,13 @@ import { Materials } from '../graphics/Materials';
 import { TerrainField } from '../hex/TerrainField';
 import { clamp, damp, dampAngle, lerp } from '../core/math';
 import { IndianState } from '../culture/CultureTypes';
-import { CulturalSpecialistBuilder } from '../graphics/CulturalSpecialistBuilder';
+import { CulturalSpecialistBuilder, SpecialistParts } from '../graphics/CulturalSpecialistBuilder';
 
 export class CharacterController {
   public mesh: THREE.Group;
   public dogMesh: THREE.Group;
   public culture: IndianState;
-  private specialistMesh: THREE.Group;
-
-  // Character body parts
-  private head: THREE.Group;
-  private torso: THREE.Mesh;
-  private scarf: THREE.Mesh;
-  private backpack: THREE.Mesh;
-  private leftArm: THREE.Mesh;
-  private rightArm: THREE.Mesh;
-  private leftLeg: THREE.Mesh;
-  private rightLeg: THREE.Mesh;
+  private specialist: SpecialistParts;
 
   // Companion Dog parts
   private dogBody: THREE.Mesh;
@@ -28,7 +18,7 @@ export class CharacterController {
   private dogTail: THREE.Mesh;
   private dogLegs: THREE.Mesh[] = [];
 
-  public position: THREE.Vector3 = new THREE.Vector3(0, 0.38, 0);
+  public position: THREE.Vector3 = new THREE.Vector3(0, 0.34, 0);
   public velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   public rotationY: number = 0;
 
@@ -37,11 +27,11 @@ export class CharacterController {
 
   private speed: number = 3.6;
   private gravity: number = 14.0;
-  private jumpForce: number = 5.0;
+  private jumpForce: number = 5.2;
   private animTimer: number = 0;
 
   // Dog follow position
-  private dogPos: THREE.Vector3 = new THREE.Vector3(-0.4, 0.38, 0.3);
+  private dogPos: THREE.Vector3 = new THREE.Vector3(-0.4, 0.34, 0.3);
   private dogRotationY: number = 0;
 
   // Input states
@@ -50,54 +40,16 @@ export class CharacterController {
 
   constructor(scene: THREE.Scene, culture: IndianState = 'bihar') {
     this.culture = culture;
-    const mats = Materials.get();
 
     // =========================================================================
-    // 1. STYLIZED SPECIALIST CHARACTER
+    // 1. ARTICULATED STYLIZED SPECIALIST CHARACTER
     // =========================================================================
     this.mesh = new THREE.Group();
 
-    // Dedicated Culture Specialist Model
-    this.specialistMesh = CulturalSpecialistBuilder.createSpecialist(culture);
-    this.mesh.add(this.specialistMesh);
-
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf5caa6, roughness: 0.6 });
-    const tunicMat = new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.75 }); // Ruby/terracotta tunic
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 }); // Dark slate
-    const bootMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.7 }); // Leather boots
-    const scarfMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.7 }); // Orange explorer scarf
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.85 }); // Deep brown hair
-    const bagMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.65 }); // Leather backpack
-
-    // Torso / Tunic
-    this.torso = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.14), tunicMat);
-    this.torso.visible = false;
-
-    // Explorer Scarf
-    this.scarf = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.16), scarfMat);
-    this.scarf.visible = false;
-
-    // Adventurer Backpack
-    this.backpack = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.10), bagMat);
-    this.backpack.visible = false;
-
-    // Head Group
-    this.head = new THREE.Group();
-    this.head.visible = false;
-
-    // Arms
-    this.leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), tunicMat);
-    this.leftArm.visible = false;
-    this.rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), tunicMat);
-    this.rightArm.visible = false;
-
-    // Legs & Boots
-    this.leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.08), pantsMat);
-    this.leftLeg.visible = false;
-    this.rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.08), pantsMat);
-    this.rightLeg.visible = false;
-
-    this.mesh.scale.set(0.95, 0.95, 0.95);
+    // Dedicated Culture Specialist Model with Articulated Limbs
+    this.specialist = CulturalSpecialistBuilder.createSpecialist(culture);
+    this.mesh.add(this.specialist.root);
+    this.mesh.visible = false; // Hidden in Build Mode initially
     scene.add(this.mesh);
 
     // =========================================================================
@@ -144,7 +96,7 @@ export class CharacterController {
     this.dogTail.rotation.x = -Math.PI / 4;
     this.dogMesh.add(this.dogTail);
 
-    // 4 Little Legs
+    // 4 Little Legs with Pivot Joints
     const legOffsets = [
       { x: -0.05, z: 0.07 }, { x: 0.05, z: 0.07 },
       { x: -0.05, z: -0.07 }, { x: 0.05, z: -0.07 }
@@ -158,6 +110,7 @@ export class CharacterController {
     });
 
     this.dogMesh.scale.set(0.9, 0.9, 0.9);
+    this.dogMesh.visible = false; // Hidden in Build Mode initially
     scene.add(this.dogMesh);
   }
 
@@ -173,7 +126,7 @@ export class CharacterController {
   }
 
   public update(dt: number, cameraAngle: number, terrain: TerrainField): void {
-    // 1. World Movement
+    // 1. World Movement Relative to Camera
     const moveDir = new THREE.Vector3(0, 0, 0);
     if (this.inputVector.lengthSq() > 0.01) {
       const forward = new THREE.Vector3(-Math.sin(cameraAngle), 0, -Math.cos(cameraAngle));
@@ -190,13 +143,13 @@ export class CharacterController {
       this.isMoving = false;
     }
 
-    // 2. Velocity
+    // 2. Velocity with Acceleration & Deceleration
     const targetVelX = moveDir.x * this.speed;
     const targetVelZ = moveDir.z * this.speed;
-    this.velocity.x = damp(this.velocity.x, targetVelX, 10, dt);
-    this.velocity.z = damp(this.velocity.z, targetVelZ, 10, dt);
+    this.velocity.x = damp(this.velocity.x, targetVelX, 12, dt);
+    this.velocity.z = damp(this.velocity.z, targetVelZ, 12, dt);
 
-    // 3. Jump
+    // 3. Jump (Only while grounded and requested in Explore Mode)
     if (this.isGrounded && this.jumpRequested) {
       this.velocity.y = this.jumpForce;
       this.isGrounded = false;
@@ -247,43 +200,65 @@ export class CharacterController {
       this.dogMesh.rotation.y = this.dogRotationY;
     }
 
-    // 6. Character & Dog Animation Cycles
-    this.animTimer += dt * (this.isMoving ? 13 : 3);
-
-    // Dog Tail Wag
-    this.dogTail.rotation.z = Math.sin(this.animTimer * 2) * 0.4;
+    // 6. Natural Articulated Locomotion & Animation Gait
+    const parts = this.specialist;
 
     if (!this.isGrounded) {
-      // Jump
-      if (this.specialistMesh) {
-        this.specialistMesh.position.y = 0.08;
-        this.specialistMesh.rotation.x = -0.15;
-      }
+      // Jump / Fall Pose
+      parts.torsoGroup.position.y = 0.26;
+      parts.torsoGroup.rotation.x = -0.12;
+      parts.leftLeg.rotation.x = 0.35;
+      parts.rightLeg.rotation.x = -0.25;
+      parts.leftArm.rotation.x = -0.6;
+      parts.rightArm.rotation.x = -0.4;
+      parts.headGroup.rotation.x = 0.1;
     } else if (this.isMoving) {
-      // Run Cycle
-      if (this.specialistMesh) {
-        this.specialistMesh.position.y = Math.abs(Math.cos(this.animTimer)) * 0.05;
-        this.specialistMesh.rotation.z = Math.sin(this.animTimer) * 0.08;
-        this.specialistMesh.rotation.x = 0.06;
-      }
+      // Natural Walk Cycle
+      this.animTimer += dt * 11.5;
+      const walkCycle = this.animTimer;
 
-      // Dog Trot
+      // Leg stride swing
+      const legSwing = Math.sin(walkCycle) * 0.65;
+      parts.leftLeg.rotation.x = legSwing;
+      parts.rightLeg.rotation.x = -legSwing;
+
+      // Arm counter-swing
+      const armSwing = Math.sin(walkCycle) * 0.55;
+      parts.leftArm.rotation.x = -armSwing;
+      parts.rightArm.rotation.x = armSwing;
+
+      // Subtle hip & torso bounce/sway
+      parts.torsoGroup.position.y = 0.22 + Math.abs(Math.sin(walkCycle * 2)) * 0.035;
+      parts.torsoGroup.rotation.z = Math.sin(walkCycle) * 0.05;
+      parts.torsoGroup.rotation.x = 0.08;
+      parts.headGroup.rotation.x = -0.04;
+
+      // Companion Dog Trot
       for (let i = 0; i < 4; i++) {
-        const dSwing = Math.sin(this.animTimer + (i % 2 === 0 ? 0 : Math.PI)) * 0.6;
+        const dSwing = Math.sin(walkCycle * 1.2 + (i % 2 === 0 ? 0 : Math.PI)) * 0.6;
         this.dogLegs[i].rotation.x = dSwing;
       }
+      this.dogTail.rotation.z = Math.sin(walkCycle * 2) * 0.5;
     } else {
-      // Idle Breathing
-      const breath = Math.sin(this.animTimer) * 0.015;
-      if (this.specialistMesh) {
-        this.specialistMesh.position.y = breath;
-        this.specialistMesh.rotation.z = 0;
-        this.specialistMesh.rotation.x = 0;
-      }
+      // Idle Breathing & Neutral Stance
+      this.animTimer += dt * 2.8;
+      const breath = Math.sin(this.animTimer) * 0.012;
+
+      parts.torsoGroup.position.y = 0.22 + breath;
+      parts.torsoGroup.rotation.x = 0;
+      parts.torsoGroup.rotation.z = 0;
+      parts.headGroup.rotation.x = -breath * 1.5;
+
+      // Damped return of limbs to neutral
+      parts.leftLeg.rotation.x = damp(parts.leftLeg.rotation.x, 0, 10, dt);
+      parts.rightLeg.rotation.x = damp(parts.rightLeg.rotation.x, 0, 10, dt);
+      parts.leftArm.rotation.x = damp(parts.leftArm.rotation.x, 0, 10, dt);
+      parts.rightArm.rotation.x = damp(parts.rightArm.rotation.x, 0, 10, dt);
 
       for (let i = 0; i < 4; i++) {
         this.dogLegs[i].rotation.x = 0;
       }
+      this.dogTail.rotation.z = Math.sin(this.animTimer * 1.5) * 0.25;
     }
   }
 

@@ -732,6 +732,23 @@ export class WorldUI {
           <button class="time-preset-btn" data-h="17" data-m="45" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">🌄 05:45 PM (Dusk)</button>
           <button class="time-preset-btn" data-h="21" data-m="0" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px; font-weight:800; font-size:12px; color:#fff; cursor:pointer;">🌙 09:00 PM (Night)</button>
         </div>
+
+        <!-- Custom Time Picker -->
+        <div style="margin-top:4px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.15); display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:11px; font-weight:700; color:#cbd5e1;">Custom Time Selection:</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input id="custom-time-hour" type="number" min="1" max="12" value="10" style="width:54px; background:rgba(15,23,42,0.8); border:1px solid rgba(255,255,255,0.25); border-radius:6px; color:#fff; padding:6px 8px; font-size:13px; font-weight:800; text-align:center;">
+            <span style="font-weight:900; color:#94a3b8;">:</span>
+            <input id="custom-time-min" type="number" min="0" max="59" value="30" style="width:54px; background:rgba(15,23,42,0.8); border:1px solid rgba(255,255,255,0.25); border-radius:6px; color:#fff; padding:6px 8px; font-size:13px; font-weight:800; text-align:center;">
+            <select id="custom-time-ampm" style="background:rgba(15,23,42,0.8); border:1px solid rgba(255,255,255,0.25); border-radius:6px; color:#fff; padding:6px 8px; font-size:13px; font-weight:800; cursor:pointer;">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+            <button id="custom-time-apply-btn" style="flex:1; background:#0284c7; border:none; border-radius:6px; color:#fff; padding:7px 12px; font-weight:800; font-size:12px; cursor:pointer; transition:background 0.2s;">
+              Apply
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
@@ -779,6 +796,37 @@ export class WorldUI {
         this.showFloatingReward(`Time set to ${newPhase.timeString}`, window.innerWidth / 2, window.innerHeight / 2);
       };
     });
+
+    const customApplyBtn = modal.querySelector('#custom-time-apply-btn') as HTMLElement;
+    if (customApplyBtn) {
+      customApplyBtn.onclick = () => {
+        const hInput = modal.querySelector('#custom-time-hour') as HTMLInputElement;
+        const mInput = modal.querySelector('#custom-time-min') as HTMLInputElement;
+        const ampmSelect = modal.querySelector('#custom-time-ampm') as HTMLSelectElement;
+
+        let hour = parseInt(hInput?.value || '10', 10);
+        const minute = parseInt(mInput?.value || '0', 10);
+        const ampm = ampmSelect?.value || 'AM';
+
+        if (isNaN(hour) || hour < 1) hour = 1;
+        if (hour > 12) hour = 12;
+
+        let h24 = hour;
+        if (ampm === 'AM') {
+          if (h24 === 12) h24 = 0;
+        } else {
+          if (h24 !== 12) h24 += 12;
+        }
+
+        const validMinute = isNaN(minute) ? 0 : Math.max(0, Math.min(59, minute));
+        this.dayNight.setExactTime(h24, validMinute);
+
+        const cur = modal.querySelector('#time-dialog-current') as HTMLElement;
+        const newPhase = this.dayNight.getPhaseInfo();
+        if (cur) cur.innerText = `${newPhase.timeString} (${newPhase.label})`;
+        this.showFloatingReward(`Time set to ${newPhase.timeString}`, window.innerWidth / 2, window.innerHeight / 2);
+      };
+    }
   }
 
   public showAssetDiagnosticModal(): void {

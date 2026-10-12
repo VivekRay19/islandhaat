@@ -53,57 +53,75 @@ export class CharacterController {
     scene.add(this.mesh);
 
     // =========================================================================
-    // 2. COMPANION PUPPY / DOG
+    // 2. COMPANION PUPPY / DOG (Stylized Rounded Geometry)
     // =========================================================================
     this.dogMesh = new THREE.Group();
-    const dogWhite = new THREE.MeshStandardMaterial({ color: 0xfefefe, roughness: 0.8 });
-    const dogBrown = new THREE.MeshStandardMaterial({ color: 0x9a5a32, roughness: 0.8 });
-    const dogNose = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.4 });
+    const dogWhite = new THREE.MeshStandardMaterial({ color: 0xfbfbfb, roughness: 0.65 });
+    const dogBrown = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.7 });
+    const dogNose = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3 });
+    const dogCollar = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 }); // Red puppy collar
 
-    // Body
-    this.dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.22), dogWhite);
-    this.dogBody.position.y = 0.12;
+    // Rounded Body (Smooth Capsule/Cylinder geometry)
+    this.dogBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12), dogWhite);
+    this.dogBody.rotation.x = Math.PI / 2;
+    this.dogBody.position.y = 0.13;
     this.dogBody.castShadow = true;
     this.dogMesh.add(this.dogBody);
 
-    // Patch on back
-    const patch = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.02, 0.10), dogBrown);
-    patch.position.set(0.02, 0.06, 0.02);
+    // Warm Brown Patch on Body
+    const patch = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), dogBrown);
+    patch.scale.set(0.9, 0.6, 1.1);
+    patch.position.set(0.03, 0.04, 0.01);
     this.dogBody.add(patch);
 
-    // Head
-    this.dogHead = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), dogWhite);
-    this.dogHead.position.set(0, 0.20, 0.12);
+    // Cute Collar
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.015, 6, 16), dogCollar);
+    collar.position.set(0, 0.08, 0);
+    this.dogBody.add(collar);
+
+    // Rounded Head
+    this.dogHead = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 12), dogWhite);
+    this.dogHead.position.set(0, 0.21, 0.12);
     this.dogHead.castShadow = true;
     this.dogMesh.add(this.dogHead);
 
-    // Floppy Brown Ears
-    this.dogEars = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.08), dogBrown);
-    this.dogEars.position.set(0, 0.04, -0.02);
-    this.dogHead.add(this.dogEars);
+    // Floppy Drooping Ears
+    const leftEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
+    leftEar.position.set(-0.07, 0.03, -0.01);
+    leftEar.rotation.z = 0.35;
+    leftEar.rotation.x = 0.2;
+    this.dogHead.add(leftEar);
 
-    // Snout & Nose
-    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.08), dogWhite);
+    const rightEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
+    rightEar.position.set(0.07, 0.03, -0.01);
+    rightEar.rotation.z = -0.35;
+    rightEar.rotation.x = 0.2;
+    this.dogHead.add(rightEar);
+    this.dogEars = leftEar;
+
+    // Rounded Snout & Shiny Button Nose
+    const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.06, 8), dogWhite);
+    snout.rotation.x = Math.PI / 2;
     snout.position.set(0, -0.02, 0.08);
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.02), dogNose);
-    nose.position.set(0, 0.02, 0.05);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), dogNose);
+    nose.position.set(0, 0.03, 0.02);
     snout.add(nose);
     this.dogHead.add(snout);
 
-    // Tail
-    this.dogTail = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.12, 4), dogBrown);
-    this.dogTail.position.set(0, 0.16, -0.12);
-    this.dogTail.rotation.x = -Math.PI / 4;
+    // Playful Tail
+    this.dogTail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.13, 8), dogBrown);
+    this.dogTail.position.set(0, 0.18, -0.12);
+    this.dogTail.rotation.x = -Math.PI / 3.5;
     this.dogMesh.add(this.dogTail);
 
-    // 4 Little Legs with Pivot Joints
+    // 4 Articulated Little Rounded Paws / Legs
     const legOffsets = [
-      { x: -0.05, z: 0.07 }, { x: 0.05, z: 0.07 },
-      { x: -0.05, z: -0.07 }, { x: 0.05, z: -0.07 }
+      { x: -0.055, z: 0.065 }, { x: 0.055, z: 0.065 },
+      { x: -0.055, z: -0.065 }, { x: 0.055, z: -0.065 }
     ];
     legOffsets.forEach((lo) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.04), dogWhite);
-      leg.position.set(lo.x, 0.045, lo.z);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.024, 0.10, 8), dogWhite);
+      leg.position.set(lo.x, 0.05, lo.z);
       leg.castShadow = true;
       this.dogMesh.add(leg);
       this.dogLegs.push(leg);
@@ -138,9 +156,6 @@ export class CharacterController {
 
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       this.rotationY = dampAngle(this.rotationY, targetAngle, 14, dt);
-      this.isMoving = true;
-    } else {
-      this.isMoving = false;
     }
 
     // 2. Velocity with Acceleration & Deceleration
@@ -148,6 +163,10 @@ export class CharacterController {
     const targetVelZ = moveDir.z * this.speed;
     this.velocity.x = damp(this.velocity.x, targetVelX, 12, dt);
     this.velocity.z = damp(this.velocity.z, targetVelZ, 12, dt);
+
+    // Compute true horizontal ground speed
+    const groundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    this.isMoving = groundSpeed > 0.15;
 
     // 3. Jump (Only while grounded and requested in Explore Mode)
     if (this.isGrounded && this.jumpRequested) {
@@ -173,7 +192,11 @@ export class CharacterController {
     this.position.y += this.velocity.y * dt;
 
     const groundY = terrain.getHeight(this.position.x, this.position.z);
+    let justLanded = false;
     if (this.position.y <= groundY) {
+      if (!this.isGrounded && this.velocity.y < -1.0) {
+        justLanded = true;
+      }
       this.position.y = groundY;
       this.velocity.y = 0;
       this.isGrounded = true;
@@ -190,10 +213,11 @@ export class CharacterController {
       this.position.y,
       this.position.z - Math.cos(this.rotationY + 0.6) * 0.45
     );
-    this.dogPos.lerp(dogTarget, dt * 6);
+    this.dogPos.lerp(dogTarget, dt * 7.5);
     this.dogPos.y = terrain.getHeight(this.dogPos.x, this.dogPos.z);
     this.dogMesh.position.copy(this.dogPos);
 
+    const dogDist = Math.hypot(this.position.x - this.dogPos.x, this.position.z - this.dogPos.z);
     const dogDir = new THREE.Vector3().subVectors(this.position, this.dogPos);
     if (dogDir.lengthSq() > 0.01) {
       this.dogRotationY = Math.atan2(dogDir.x, dogDir.z);
@@ -204,61 +228,69 @@ export class CharacterController {
     const parts = this.specialist;
 
     if (!this.isGrounded) {
-      // Jump / Fall Pose
-      parts.torsoGroup.position.y = 0.26;
-      parts.torsoGroup.rotation.x = -0.12;
-      parts.leftLeg.rotation.x = 0.35;
-      parts.rightLeg.rotation.x = -0.25;
-      parts.leftArm.rotation.x = -0.6;
-      parts.rightArm.rotation.x = -0.4;
-      parts.headGroup.rotation.x = 0.1;
+      // Jump / Fall Pose (Dynamic based on vertical velocity)
+      const jumpRatio = clamp(this.velocity.y / this.jumpForce, -1, 1);
+      parts.torsoGroup.position.y = 0.24 + (jumpRatio > 0 ? 0.03 : -0.01);
+      parts.torsoGroup.rotation.x = jumpRatio * -0.15;
+      parts.leftLeg.rotation.x = 0.35 + jumpRatio * 0.1;
+      parts.rightLeg.rotation.x = -0.25 - jumpRatio * 0.1;
+      parts.leftArm.rotation.x = -0.6 - jumpRatio * 0.2;
+      parts.rightArm.rotation.x = -0.4 - jumpRatio * 0.2;
+      parts.headGroup.rotation.x = 0.1 - jumpRatio * 0.15;
+
+      // Puppy airborne pose
+      this.dogTail.rotation.z = Math.sin(this.animTimer * 6) * 0.4;
     } else if (this.isMoving) {
-      // Natural Walk Cycle
-      this.animTimer += dt * 11.5;
+      // Natural Walk Cycle tied strictly to ground speed (Zero foot sliding!)
+      const strideFreq = (groundSpeed / this.speed) * 11.5;
+      this.animTimer += dt * Math.max(strideFreq, 2.0);
       const walkCycle = this.animTimer;
 
-      // Leg stride swing
-      const legSwing = Math.sin(walkCycle) * 0.65;
+      // Leg stride swing scaled by speed ratio
+      const speedRatio = clamp(groundSpeed / this.speed, 0.2, 1.0);
+      const legSwing = Math.sin(walkCycle) * 0.65 * speedRatio;
       parts.leftLeg.rotation.x = legSwing;
       parts.rightLeg.rotation.x = -legSwing;
 
       // Arm counter-swing
-      const armSwing = Math.sin(walkCycle) * 0.55;
+      const armSwing = Math.sin(walkCycle) * 0.55 * speedRatio;
       parts.leftArm.rotation.x = -armSwing;
       parts.rightArm.rotation.x = armSwing;
 
       // Subtle hip & torso bounce/sway
-      parts.torsoGroup.position.y = 0.22 + Math.abs(Math.sin(walkCycle * 2)) * 0.035;
-      parts.torsoGroup.rotation.z = Math.sin(walkCycle) * 0.05;
-      parts.torsoGroup.rotation.x = 0.08;
-      parts.headGroup.rotation.x = -0.04;
+      parts.torsoGroup.position.y = 0.22 + Math.abs(Math.sin(walkCycle * 2)) * 0.035 * speedRatio;
+      parts.torsoGroup.rotation.z = Math.sin(walkCycle) * 0.05 * speedRatio;
+      parts.torsoGroup.rotation.x = 0.08 * speedRatio;
+      parts.headGroup.rotation.x = -0.04 * speedRatio;
 
-      // Companion Dog Trot
+      // Companion Dog Trot (Proportional to follow distance & speed)
+      const dogLegSpeed = Math.max(strideFreq * 1.1, 4.0);
       for (let i = 0; i < 4; i++) {
-        const dSwing = Math.sin(walkCycle * 1.2 + (i % 2 === 0 ? 0 : Math.PI)) * 0.6;
+        const phase = (i === 0 || i === 3) ? 0 : Math.PI;
+        const dSwing = Math.sin(walkCycle * 1.2 + phase) * 0.6 * speedRatio;
         this.dogLegs[i].rotation.x = dSwing;
       }
-      this.dogTail.rotation.z = Math.sin(walkCycle * 2) * 0.5;
+      this.dogTail.rotation.z = Math.sin(walkCycle * 3) * 0.6;
     } else {
       // Idle Breathing & Neutral Stance
       this.animTimer += dt * 2.8;
       const breath = Math.sin(this.animTimer) * 0.012;
 
       parts.torsoGroup.position.y = 0.22 + breath;
-      parts.torsoGroup.rotation.x = 0;
-      parts.torsoGroup.rotation.z = 0;
+      parts.torsoGroup.rotation.x = damp(parts.torsoGroup.rotation.x, 0, 8, dt);
+      parts.torsoGroup.rotation.z = damp(parts.torsoGroup.rotation.z, 0, 8, dt);
       parts.headGroup.rotation.x = -breath * 1.5;
 
       // Damped return of limbs to neutral
-      parts.leftLeg.rotation.x = damp(parts.leftLeg.rotation.x, 0, 10, dt);
-      parts.rightLeg.rotation.x = damp(parts.rightLeg.rotation.x, 0, 10, dt);
-      parts.leftArm.rotation.x = damp(parts.leftArm.rotation.x, 0, 10, dt);
-      parts.rightArm.rotation.x = damp(parts.rightArm.rotation.x, 0, 10, dt);
+      parts.leftLeg.rotation.x = damp(parts.leftLeg.rotation.x, 0, 12, dt);
+      parts.rightLeg.rotation.x = damp(parts.rightLeg.rotation.x, 0, 12, dt);
+      parts.leftArm.rotation.x = damp(parts.leftArm.rotation.x, 0, 12, dt);
+      parts.rightArm.rotation.x = damp(parts.rightArm.rotation.x, 0, 12, dt);
 
       for (let i = 0; i < 4; i++) {
-        this.dogLegs[i].rotation.x = 0;
+        this.dogLegs[i].rotation.x = damp(this.dogLegs[i].rotation.x, 0, 10, dt);
       }
-      this.dogTail.rotation.z = Math.sin(this.animTimer * 1.5) * 0.25;
+      this.dogTail.rotation.z = Math.sin(this.animTimer * 2) * 0.3;
     }
   }
 

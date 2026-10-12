@@ -7,6 +7,7 @@ import { CULTURE_PROFILES } from '../culture/CultureRegistry';
 import { IndianState } from '../culture/CultureTypes';
 import { CulturalAssetDiagnostics } from '../culture/CulturalAssetDiagnostics';
 import { CultureComparisonViewer } from '../culture/CultureComparisonViewer';
+import { AnimationTestScene } from '../character/AnimationTestScene';
 
 export class WorldUI {
   private container: HTMLElement;
@@ -302,8 +303,37 @@ export class WorldUI {
       gap: 5px;
       z-index: 10;
     `;
-    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v2.5.0 (Organic Locomotion)`;
+    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v3.0.0 (Skeletal Rigging)`;
     this.container.appendChild(versionBadge);
+
+    // Isolated Animation Stage Trigger Button
+    const animStageBtn = document.createElement('button');
+    animStageBtn.id = 'anim-test-stage-btn';
+    animStageBtn.style.cssText = `
+      position: absolute;
+      top: 164px; right: 24px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 14px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+      z-index: 10;
+      transition: transform 0.15s;
+    `;
+    animStageBtn.innerHTML = `🎭 Skeletal Test Stage`;
+    animStageBtn.onclick = () => {
+      const testStage = new AnimationTestScene(document.body);
+      testStage.open();
+    };
+    this.container.appendChild(animStageBtn);
 
     // =========================================================================
     // 2. BOTTOM HAND DECK

@@ -61,6 +61,11 @@ export class GameManager {
       this.cultureScreen = null;
     }
 
+    if (this.game) {
+      this.game.destroy();
+      this.game = null;
+    }
+
     // Clear container
     this.container.innerHTML = '';
 

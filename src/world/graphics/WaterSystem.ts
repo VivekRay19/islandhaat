@@ -53,14 +53,16 @@ export class WaterSystem {
   public update(dt: number): void {
     this.time += dt * 1.6;
     const pos = this.mesh.geometry.attributes.position;
+    const posArray = pos.array as Float32Array;
     const count = pos.count;
+
+    // Direct typed-array access is significantly faster than getX/getY/setZ
     for (let i = 0; i < count; i++) {
-      const u = pos.getX(i);
-      const v = pos.getY(i);
-      const wave = Math.sin(u * 0.35 + this.time) * 0.05 + Math.cos(v * 0.45 + this.time * 0.7) * 0.04;
-      pos.setZ(i, wave);
+      const idx = i * 3;
+      const u = posArray[idx];     // X
+      const v = posArray[idx + 1]; // Y
+      posArray[idx + 2] = Math.sin(u * 0.35 + this.time) * 0.05 + Math.cos(v * 0.45 + this.time * 0.7) * 0.04; // Z
     }
     pos.needsUpdate = true;
-    this.mesh.geometry.computeVertexNormals();
   }
 }

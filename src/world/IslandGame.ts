@@ -34,6 +34,7 @@ export class IslandGame {
   // Render objects
   private tileMeshes: Map<string, THREE.Group> = new Map();
   private slotMarkers: THREE.Group = new THREE.Group();
+  private sharedSlotGeo: THREE.CylinderGeometry = new THREE.CylinderGeometry(HEX_R * 0.95, HEX_R * 0.95, 0.04, 6);
   private ghostMesh: THREE.Group | null = null;
   private hoveredSlot: { q: number; r: number } | null = null;
 
@@ -42,14 +43,20 @@ export class IslandGame {
   private chestLid: THREE.Mesh | null = null;
   private chestPos: THREE.Vector3 = new THREE.Vector3(0, 0.38, -4.5);
 
-  // Raycasting
+  // Raycasting & Throttling
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private mouse: THREE.Vector2 = new THREE.Vector2();
   private isMouseDown: boolean = false;
   private lastMouseX: number = 0;
   private lastMouseY: number = 0;
+  private hoverThrottleTime: number = 0;
 
+  // Animation & Lifecycle
   private clock: THREE.Clock = new THREE.Clock();
+  private isRunning: boolean = true;
+  private animFrameId: number | null = null;
+  private eventRemovers: (() => void)[] = [];
+  private keys: Record<string, boolean> = {};
 
   constructor(container: HTMLElement, culture: IndianState = 'bihar', isContinue = false) {
     this.materials = Materials.get();
@@ -163,6 +170,7 @@ export class IslandGame {
   }
 
   private updateAvailableSlotMarkers(): void {
+    // Cleanly remove existing slot markers
     while (this.slotMarkers.children.length > 0) {
       this.slotMarkers.remove(this.slotMarkers.children[0]);
     }
@@ -176,8 +184,8 @@ export class IslandGame {
       const cx = SQRT3 * HEX_R * (slot.q + slot.r / 2);
       const cz = 1.5 * HEX_R * slot.r;
 
-      const slotGeo = new THREE.CylinderGeometry(HEX_R * 0.95, HEX_R * 0.95, 0.04, 6);
-      const slotMesh = new THREE.Mesh(slotGeo, mats.slotValid);
+      // Reuse pre-instantiated sharedSlotGeo
+      const slotMesh = new THREE.Mesh(this.sharedSlotGeo, mats.slotValid);
       slotMesh.position.set(cx, 0.12, cz);
       slotMesh.userData = { q: slot.q, r: slot.r, isSlot: true };
       this.slotMarkers.add(slotMesh);
@@ -273,41 +281,44 @@ export class IslandGame {
   }
 
   private bindEvents(): void {
-    window.addEventListener('resize', () => {
+    const addEvt = (target: EventTarget, type: string, listener: EventListenerOrEventListenerObject) => {
+      target.addEventListener(type, listener);
+      this.eventRemovers.push(() => target.removeEventListener(type, listener));
+    };
+
+    addEvt(window, 'resize', () => {
       this.cameraCtrl.setAspect(window.innerWidth / window.innerHeight);
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
     // Mouse move & raycast
-    window.addEventListener('mousemove', (e) => {
-      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    addEvt(window, 'mousemove', (e: Event) => {
+      const me = e as MouseEvent;
+      this.mouse.x = (me.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(me.clientY / window.innerHeight) * 2 + 1;
 
       if (this.isMouseDown) {
-        const dx = e.clientX - this.lastMouseX;
-        const dy = e.clientY - this.lastMouseY;
+        const dx = me.clientX - this.lastMouseX;
+        const dy = me.clientY - this.lastMouseY;
         if (this.cameraCtrl.mode === 'build') {
-          if (e.buttons === 2 || e.shiftKey) {
+          if (me.buttons === 2 || me.shiftKey) {
             this.cameraCtrl.panBuildCamera(dx, dy);
           }
         } else {
           this.cameraCtrl.rotateExploreCamera(dx, dy);
         }
       }
-      this.lastMouseX = e.clientX;
-      this.lastMouseY = e.clientY;
-
-      if (this.cameraCtrl.mode === 'build') {
-        this.checkSlotHover();
-      }
+      this.lastMouseX = me.clientX;
+      this.lastMouseY = me.clientY;
     });
 
-    window.addEventListener('mousedown', (e) => {
+    addEvt(window, 'mousedown', (e: Event) => {
+      const me = e as MouseEvent;
       this.isMouseDown = true;
-      this.lastMouseX = e.clientX;
-      this.lastMouseY = e.clientY;
+      this.lastMouseX = me.clientX;
+      this.lastMouseY = me.clientY;
 
-      if (e.button === 0 && this.cameraCtrl.mode === 'build') {
+      if (me.button === 0 && this.cameraCtrl.mode === 'build') {
         this.raycaster.setFromCamera(this.mouse, this.cameraCtrl.camera);
         const hits = this.raycaster.intersectObjects(this.slotMarkers.children, true);
         if (hits.length > 0) {
@@ -319,49 +330,48 @@ export class IslandGame {
       }
     });
 
-    window.addEventListener('mouseup', () => {
+    addEvt(window, 'mouseup', () => {
       this.isMouseDown = false;
     });
 
-    window.addEventListener('wheel', (e) => {
+    addEvt(window, 'wheel', (e: Event) => {
+      const we = e as WheelEvent;
       if (this.cameraCtrl.mode === 'build') {
-        this.cameraCtrl.zoomBuildCamera(e.deltaY);
+        this.cameraCtrl.zoomBuildCamera(we.deltaY);
       }
     });
 
     // Keyboard controls
-    const keys: Record<string, boolean> = {};
-    window.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
+    addEvt(window, 'keydown', (e: Event) => {
+      const ke = e as KeyboardEvent;
+      this.keys[ke.code] = true;
 
-      if (e.code === 'KeyR' && this.cameraCtrl.mode === 'build') {
+      if (ke.code === 'KeyR' && this.cameraCtrl.mode === 'build') {
         this.state.rotateCurrentTile();
         this.audio.playTileRotate();
         this.updateGhost();
       }
 
-      if (e.code === 'KeyE') {
+      if (ke.code === 'KeyE') {
         const activeTarget = this.interactions.getActiveTarget();
         if (activeTarget) this.handleInteract(activeTarget);
       }
 
-      if (e.code === 'Escape') {
+      if (ke.code === 'Escape') {
         if (this.cameraCtrl.mode === 'explore') {
           this.toggleGameMode();
         }
       }
 
-      if (e.code === 'Space') {
+      if (ke.code === 'Space') {
         this.character.jumpRequested = true;
       }
     });
 
-    window.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
+    addEvt(window, 'keyup', (e: Event) => {
+      const ke = e as KeyboardEvent;
+      this.keys[ke.code] = false;
     });
-
-    // Update input vector each frame
-    (this as any)._keys = keys;
   }
 
   private checkSlotHover(): void {
@@ -383,27 +393,40 @@ export class IslandGame {
   }
 
   private animate = (): void => {
-    requestAnimationFrame(this.animate);
+    if (!this.isRunning) return;
+    this.animFrameId = requestAnimationFrame(this.animate);
+
+    // Pause rendering updates when the browser tab is hidden
+    if (document.hidden) return;
+
     const dt = Math.min(this.clock.getDelta(), 0.1);
 
     // 1. Process Input Vector
-    const keys = (this as any)._keys || {};
     let ix = 0;
     let iy = 0;
-    if (keys['KeyW'] || keys['ArrowUp']) iy += 1;
-    if (keys['KeyS'] || keys['ArrowDown']) iy -= 1;
-    if (keys['KeyA'] || keys['ArrowLeft']) ix -= 1;
-    if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) iy += 1;
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) iy -= 1;
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) ix -= 1;
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) ix += 1;
     this.character.inputVector.set(ix, iy);
 
-    // 2. Update Systems
+    // 2. Throttled Raycasting for Slot Hovering (~30Hz)
+    if (this.cameraCtrl.mode === 'build') {
+      this.hoverThrottleTime += dt;
+      if (this.hoverThrottleTime >= 0.033) {
+        this.hoverThrottleTime = 0;
+        this.checkSlotHover();
+      }
+    }
+
+    // 3. Update Systems
     this.tweens.update(dt);
     this.water.update(dt);
     this.dayNight.update(dt);
     this.character.update(dt, this.cameraCtrl.exploreYaw, this.state.terrain);
     this.cameraCtrl.update(dt, this.character);
 
-    // 3. Update Proximity Interactions
+    // 4. Update Proximity Interactions
     const target = this.interactions.findNearestInteractable(
       this.character,
       this.state.terrain.getAllTiles(),
@@ -411,10 +434,34 @@ export class IslandGame {
       this.state.activeEvent?.targetTileKey
     );
 
-    // 4. Update UI
+    // 5. Update UI
     this.ui.update(this.cameraCtrl.mode, target);
 
-    // 5. Render Scene
+    // 6. Render Scene
     this.renderer.render(this.scene, this.cameraCtrl.camera);
   };
+
+  public destroy(): void {
+    this.isRunning = false;
+    if (this.animFrameId !== null) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+
+    // Remove window event listeners
+    this.eventRemovers.forEach(fn => fn());
+    this.eventRemovers = [];
+
+    // Dispose shared slot geometry
+    this.sharedSlotGeo.dispose();
+
+    // Destroy UI
+    this.ui.destroy();
+
+    // Dispose renderer
+    this.renderer.dispose();
+    if (this.renderer.domElement && this.renderer.domElement.parentElement) {
+      this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
+    }
+  }
 }

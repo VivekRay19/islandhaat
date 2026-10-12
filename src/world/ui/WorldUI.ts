@@ -697,4 +697,14 @@ export class WorldUI {
     const closeBtn = modal.querySelector('#close-ingame-diag-btn') as HTMLElement;
     closeBtn.onclick = () => modal.remove();
   }
+
+  public destroy(): void {
+    if (this.container && this.container.parentElement) {
+      this.container.parentElement.removeChild(this.container);
+    }
+    const diagModal = document.getElementById('ingame-asset-diagnostic-modal');
+    if (diagModal) {
+      diagModal.remove();
+    }
+  }
 }

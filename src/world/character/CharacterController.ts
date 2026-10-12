@@ -283,54 +283,76 @@ export class CharacterController {
       }
     } else if (this.walkWeight > 0.01) {
       // -------------------------------------------------------------
-      // Walking Locomotion State (Grounded) - Relaxed & Natural Cadence
+      // 2-Phase Organic Bob-and-Step Locomotion (Warm Stylized Walk)
       // -------------------------------------------------------------
-      // Stride frequency directly proportional to ground velocity (stride rate set to a calm 3.8)
-      const strideRate = (currentGroundSpeed / this.speed) * 3.8;
-      this.walkCyclePhase += dt * strideRate;
+      // Natural walking cadence (~1.8 steps per second at full speed)
+      const cadence = (currentGroundSpeed / this.speed) * 4.8;
+      this.walkCyclePhase += dt * cadence;
       const phi = this.walkCyclePhase;
       const w = this.walkWeight;
 
-      // Leg stride swing: relaxed, gentle 0.28 rad amplitude (~16 deg)
-      const legAmplitude = 0.28 * w;
-      parts.leftLeg.rotation.x = Math.sin(phi) * legAmplitude;
-      parts.rightLeg.rotation.x = -Math.sin(phi) * legAmplitude;
-      parts.leftLeg.rotation.y = 0;
-      parts.rightLeg.rotation.y = 0;
-      parts.leftLeg.rotation.z = 0;
-      parts.rightLeg.rotation.z = 0;
+      // 1. Organic Leg Kinematics:
+      // In real walking, support leg pushes back while swing leg bends up and forward
+      const sinLeg = Math.sin(phi);
+      const cosLeg = Math.cos(phi);
 
-      // Natural gentle opposing arm swing: relaxed 0.20 rad amplitude (~11.5 deg)
-      const armAmplitude = 0.20 * w;
-      parts.leftArm.rotation.x = -Math.sin(phi) * armAmplitude;
-      parts.rightArm.rotation.x = Math.sin(phi) * armAmplitude;
+      // Main stride swing (calm 0.32 rad ~ 18 deg)
+      parts.leftLeg.rotation.x = sinLeg * 0.32 * w;
+      parts.rightLeg.rotation.x = -sinLeg * 0.32 * w;
+
+      // Subtle knee lift during forward swing (knee/ankle clearance)
+      const leftLift = Math.max(0, sinLeg) * 0.035 * w;
+      const rightLift = Math.max(0, -sinLeg) * 0.035 * w;
+      parts.leftLeg.position.y = leftLift;
+      parts.rightLeg.position.y = rightLift;
+
+      // Subtle lateral hip sway (weight transfer onto supporting foot)
+      const hipSway = Math.sin(phi) * 0.012 * w;
+      parts.torsoGroup.position.x = hipSway;
+
+      // Rhythmic step bounce: two subtle dips per stride cycle
+      const stepBounce = -Math.abs(sinLeg) * 0.014 * w;
+      parts.torsoGroup.position.y = 0.22 + stepBounce;
+
+      // Subtle pelvis & shoulder twist around vertical axis Y
+      parts.torsoGroup.rotation.y = -sinLeg * 0.04 * w;
+      parts.torsoGroup.rotation.z = -hipSway * 1.5;
+      parts.torsoGroup.rotation.x = 0.02 * w; // gentle forward posture
+
+      // 2. Natural Arm Counter-Balance:
+      // Arms counter-swing opposite to legs with a relaxed outward flare and subtle roll
+      parts.leftArm.rotation.x = -sinLeg * 0.24 * w;
+      parts.rightArm.rotation.x = sinLeg * 0.24 * w;
+      parts.leftArm.rotation.z = -0.06 - Math.abs(cosLeg) * 0.03 * w; // natural resting hang
+      parts.rightArm.rotation.z = 0.06 + Math.abs(cosLeg) * 0.03 * w;
       parts.leftArm.rotation.y = 0;
       parts.rightArm.rotation.y = 0;
-      parts.leftArm.rotation.z = 0;
-      parts.rightArm.rotation.z = 0;
 
-      // Stable Torso: firmly anchored at waist pivot, imperceptible 0.015 forward lean
-      parts.torsoGroup.position.set(0, 0.22, 0);
-      parts.torsoGroup.rotation.set(0.015 * w, 0, 0);
-      parts.headGroup.rotation.set(0, 0, 0); // Head remains steady and level
+      // 3. Steady Gaze & Stabilized Head
+      parts.headGroup.rotation.y = sinLeg * 0.03 * w; // slight counter-turn to keep eyes forward
+      parts.headGroup.rotation.x = -0.01 * w;
+      parts.headGroup.rotation.z = hipSway * 0.8;
     } else {
       // -------------------------------------------------------------
       // Completely Settled Stable Idle State (ZERO Jiggle, Feet Planted)
       // -------------------------------------------------------------
-      // Root torso strictly fixed at neutral position
+      // Reset torso group cleanly to neutral
       parts.torsoGroup.position.set(0, 0.22, 0);
       parts.torsoGroup.rotation.set(0, 0, 0);
 
-      // Return limbs cleanly to neutral rest pose with zero residual motion
+      // Return limbs cleanly to neutral rest pose
+      parts.leftLeg.position.set(-0.065, 0, 0);
+      parts.rightLeg.position.set(0.065, 0, 0);
       parts.leftLeg.rotation.set(0, 0, 0);
       parts.rightLeg.rotation.set(0, 0, 0);
-      parts.leftArm.rotation.set(0, 0, 0);
-      parts.rightArm.rotation.set(0, 0, 0);
+
+      parts.leftArm.rotation.set(0, 0, -0.06);
+      parts.rightArm.rotation.set(0, 0, 0.06);
       parts.headGroup.rotation.set(0, 0, 0);
     }
 
     // -----------------------------------------------------------------
-    // Dog Quadruped Locomotion & Settled Idle (Relaxed Natural Rhythm)
+    // Dog Quadruped Locomotion & Settled Idle (Organic Bouncing Trot)
     // -----------------------------------------------------------------
     const targetDogWeight = (dogSpeed > 0.08) ? clamp(dogSpeed / this.speed, 0.2, 1.0) : 0.0;
     this.dogWalkWeight = damp(this.dogWalkWeight, targetDogWeight, 14, dt);
@@ -339,22 +361,25 @@ export class CharacterController {
     }
 
     if (this.dogWalkWeight > 0.01) {
-      // Calmer quadruped trot phase rate scaled to 4.5
-      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 4.5;
+      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 5.6;
       const dPhi = this.dogWalkPhase;
       const dw = this.dogWalkWeight;
 
-      // Quadruped diagonal trot pairs with gentle 0.24 rad amplitude (~13.7 deg)
-      const trotAmp = 0.24 * dw;
+      // Quadruped diagonal trot pairs with gentle step lift
+      const trotAmp = 0.26 * dw;
       this.dogLegs[0].rotation.x = Math.sin(dPhi) * trotAmp;          // Front Left
       this.dogLegs[1].rotation.x = -Math.sin(dPhi) * trotAmp;         // Front Right
       this.dogLegs[2].rotation.x = -Math.sin(dPhi) * trotAmp;         // Hind Left
       this.dogLegs[3].rotation.x = Math.sin(dPhi) * trotAmp;          // Hind Right
 
+      // Subtle playful puppy body bobbing
+      this.dogBody.position.y = 0.13 + Math.abs(Math.sin(dPhi)) * 0.008 * dw;
+
       // Gentle tail wagging while trotting
-      this.dogTail.rotation.z = Math.sin(dPhi * 1.5) * 0.20 * dw;
+      this.dogTail.rotation.z = Math.sin(dPhi * 2.0) * 0.25 * dw;
     } else {
       // Dog fully settles: feet planted, body resting
+      this.dogBody.position.y = 0.13;
       for (let i = 0; i < 4; i++) {
         this.dogLegs[i].rotation.set(0, 0, 0);
       }

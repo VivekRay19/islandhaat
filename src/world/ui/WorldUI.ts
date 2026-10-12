@@ -302,7 +302,7 @@ export class WorldUI {
       gap: 5px;
       z-index: 10;
     `;
-    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v2.4.0 (Calm Locomotion)`;
+    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v2.5.0 (Organic Locomotion)`;
     this.container.appendChild(versionBadge);
 
     // =========================================================================

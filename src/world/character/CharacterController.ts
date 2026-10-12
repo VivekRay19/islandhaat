@@ -114,17 +114,22 @@ export class CharacterController {
     this.dogTail.rotation.x = -Math.PI / 3.5;
     this.dogMesh.add(this.dogTail);
 
-    // 4 Articulated Little Rounded Paws / Legs
+    // 4 Articulated Little Rounded Paws / Legs with hip pivot groups
     const legOffsets = [
-      { x: -0.055, z: 0.065 }, { x: 0.055, z: 0.065 },
-      { x: -0.055, z: -0.065 }, { x: 0.055, z: -0.065 }
+      { x: -0.055, z: 0.065 }, // 0: Front Left
+      { x: 0.055, z: 0.065 },  // 1: Front Right
+      { x: -0.055, z: -0.065 }, // 2: Hind Left
+      { x: 0.055, z: -0.065 }  // 3: Hind Right
     ];
     legOffsets.forEach((lo) => {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.024, 0.10, 8), dogWhite);
-      leg.position.set(lo.x, 0.05, lo.z);
-      leg.castShadow = true;
-      this.dogMesh.add(leg);
-      this.dogLegs.push(leg);
+      const legPivot = new THREE.Group();
+      legPivot.position.set(lo.x, 0.09, lo.z);
+      const legMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.024, 0.09, 8), dogWhite);
+      legMesh.position.set(0, -0.045, 0);
+      legMesh.castShadow = true;
+      legPivot.add(legMesh);
+      this.dogMesh.add(legPivot);
+      this.dogLegs.push(legPivot as any);
     });
 
     this.dogMesh.scale.set(0.9, 0.9, 0.9);
@@ -132,11 +137,21 @@ export class CharacterController {
     scene.add(this.dogMesh);
   }
 
+  // Animation state weights and phases
+  private walkWeight: number = 0.0;
+  private walkCyclePhase: number = 0.0;
+  private dogWalkWeight: number = 0.0;
+  private dogWalkPhase: number = 0.0;
+
   public setPosition(x: number, z: number, terrain: TerrainField): void {
     this.position.x = x;
     this.position.z = z;
     this.position.y = terrain.getHeight(x, z);
     this.velocity.set(0, 0, 0);
+    this.walkWeight = 0;
+    this.walkCyclePhase = 0;
+    this.dogWalkWeight = 0;
+    this.dogWalkPhase = 0;
     this.mesh.position.copy(this.position);
 
     this.dogPos.set(x - 0.4, this.position.y, z + 0.3);
@@ -146,7 +161,8 @@ export class CharacterController {
   public update(dt: number, cameraAngle: number, terrain: TerrainField): void {
     // 1. World Movement Relative to Camera
     const moveDir = new THREE.Vector3(0, 0, 0);
-    if (this.inputVector.lengthSq() > 0.01) {
+    const hasInput = this.inputVector.lengthSq() > 0.01;
+    if (hasInput) {
       const forward = new THREE.Vector3(-Math.sin(cameraAngle), 0, -Math.cos(cameraAngle));
       const right = new THREE.Vector3(Math.cos(cameraAngle), 0, -Math.sin(cameraAngle));
 
@@ -155,18 +171,25 @@ export class CharacterController {
       moveDir.normalize();
 
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
-      this.rotationY = dampAngle(this.rotationY, targetAngle, 14, dt);
+      this.rotationY = dampAngle(this.rotationY, targetAngle, 16, dt);
     }
 
-    // 2. Velocity with Acceleration & Deceleration
+    // 2. Velocity with Fast Deceleration when input stops
     const targetVelX = moveDir.x * this.speed;
     const targetVelZ = moveDir.z * this.speed;
-    this.velocity.x = damp(this.velocity.x, targetVelX, 12, dt);
-    this.velocity.z = damp(this.velocity.z, targetVelZ, 12, dt);
+    const accelRate = hasInput ? 14 : 20; // snappy, clean deceleration
+    this.velocity.x = damp(this.velocity.x, targetVelX, accelRate, dt);
+    this.velocity.z = damp(this.velocity.z, targetVelZ, accelRate, dt);
 
     // Compute true horizontal ground speed
     const groundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    this.isMoving = groundSpeed > 0.15;
+    // Strict threshold: below 0.05 m/s, cleanly stop residual crawl
+    if (!hasInput && groundSpeed < 0.05) {
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+    }
+    const currentGroundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    this.isMoving = currentGroundSpeed > 0.08;
 
     // 3. Jump (Only while grounded and requested in Explore Mode)
     if (this.isGrounded && this.jumpRequested) {
@@ -192,11 +215,7 @@ export class CharacterController {
     this.position.y += this.velocity.y * dt;
 
     const groundY = terrain.getHeight(this.position.x, this.position.z);
-    let justLanded = false;
     if (this.position.y <= groundY) {
-      if (!this.isGrounded && this.velocity.y < -1.0) {
-        justLanded = true;
-      }
       this.position.y = groundY;
       this.velocity.y = 0;
       this.isGrounded = true;
@@ -208,89 +227,137 @@ export class CharacterController {
     this.mesh.rotation.y = this.rotationY;
 
     // 5. Companion Dog Following Logic
+    // Desired offset in character's local coordinates behind to the left
     const dogTarget = new THREE.Vector3(
       this.position.x - Math.sin(this.rotationY + 0.6) * 0.45,
       this.position.y,
       this.position.z - Math.cos(this.rotationY + 0.6) * 0.45
     );
-    this.dogPos.lerp(dogTarget, dt * 7.5);
+    const distToDog = Math.hypot(dogTarget.x - this.dogPos.x, dogTarget.z - this.dogPos.z);
+    
+    // Smooth follow without jitter; if close enough, stop dog movement completely
+    let dogSpeed = 0;
+    if (distToDog > 0.12) {
+      const prevX = this.dogPos.x;
+      const prevZ = this.dogPos.z;
+      this.dogPos.lerp(dogTarget, dt * 6.5);
+      dogSpeed = Math.hypot(this.dogPos.x - prevX, this.dogPos.z - prevZ) / Math.max(dt, 0.001);
+    }
     this.dogPos.y = terrain.getHeight(this.dogPos.x, this.dogPos.z);
     this.dogMesh.position.copy(this.dogPos);
 
-    const dogDist = Math.hypot(this.position.x - this.dogPos.x, this.position.z - this.dogPos.z);
     const dogDir = new THREE.Vector3().subVectors(this.position, this.dogPos);
-    if (dogDir.lengthSq() > 0.01) {
-      this.dogRotationY = Math.atan2(dogDir.x, dogDir.z);
+    if (dogDir.lengthSq() > 0.02) {
+      const targetDogRot = Math.atan2(dogDir.x, dogDir.z);
+      this.dogRotationY = dampAngle(this.dogRotationY, targetDogRot, 12, dt);
       this.dogMesh.rotation.y = this.dogRotationY;
     }
 
-    // 6. Natural Articulated Locomotion & Animation Gait
+    // =========================================================================
+    // 6. ANIMATION CONTROLLER (Clean State Blending & Zero Residual Jiggle)
+    // =========================================================================
     const parts = this.specialist;
 
+    // Smoothly blend walk weight: 1.0 when moving, 0.0 when stopped (200ms transition)
+    const targetWalkWeight = (this.isGrounded && this.isMoving) ? clamp(currentGroundSpeed / this.speed, 0.2, 1.0) : 0.0;
+    this.walkWeight = damp(this.walkWeight, targetWalkWeight, 14, dt);
+    if (this.walkWeight < 0.01) {
+      this.walkWeight = 0;
+    }
+
     if (!this.isGrounded) {
-      // Jump / Fall Pose (Dynamic based on vertical velocity)
+      // Jump / Fall Airborne Pose
       const jumpRatio = clamp(this.velocity.y / this.jumpForce, -1, 1);
-      parts.torsoGroup.position.y = 0.24 + (jumpRatio > 0 ? 0.03 : -0.01);
-      parts.torsoGroup.rotation.x = jumpRatio * -0.15;
-      parts.leftLeg.rotation.x = 0.35 + jumpRatio * 0.1;
-      parts.rightLeg.rotation.x = -0.25 - jumpRatio * 0.1;
-      parts.leftArm.rotation.x = -0.6 - jumpRatio * 0.2;
-      parts.rightArm.rotation.x = -0.4 - jumpRatio * 0.2;
-      parts.headGroup.rotation.x = 0.1 - jumpRatio * 0.15;
+      parts.torsoGroup.position.set(0, 0.22, 0);
+      parts.torsoGroup.rotation.set(jumpRatio * -0.12, 0, 0);
+      parts.leftLeg.rotation.set(0.35 + jumpRatio * 0.1, 0, 0);
+      parts.rightLeg.rotation.set(-0.25 - jumpRatio * 0.1, 0, 0);
+      parts.leftArm.rotation.set(-0.5 - jumpRatio * 0.2, 0, 0);
+      parts.rightArm.rotation.set(-0.4 - jumpRatio * 0.2, 0, 0);
+      parts.headGroup.rotation.set(0.08 - jumpRatio * 0.1, 0, 0);
 
-      // Puppy airborne pose
-      this.dogTail.rotation.z = Math.sin(this.animTimer * 6) * 0.4;
-    } else if (this.isMoving) {
-      // Natural Walk Cycle tied strictly to ground speed (Zero foot sliding!)
-      const strideFreq = (groundSpeed / this.speed) * 11.5;
-      this.animTimer += dt * Math.max(strideFreq, 2.0);
-      const walkCycle = this.animTimer;
-
-      // Leg stride swing scaled by speed ratio
-      const speedRatio = clamp(groundSpeed / this.speed, 0.2, 1.0);
-      const legSwing = Math.sin(walkCycle) * 0.65 * speedRatio;
-      parts.leftLeg.rotation.x = legSwing;
-      parts.rightLeg.rotation.x = -legSwing;
-
-      // Arm counter-swing
-      const armSwing = Math.sin(walkCycle) * 0.55 * speedRatio;
-      parts.leftArm.rotation.x = -armSwing;
-      parts.rightArm.rotation.x = armSwing;
-
-      // Subtle hip & torso bounce/sway
-      parts.torsoGroup.position.y = 0.22 + Math.abs(Math.sin(walkCycle * 2)) * 0.035 * speedRatio;
-      parts.torsoGroup.rotation.z = Math.sin(walkCycle) * 0.05 * speedRatio;
-      parts.torsoGroup.rotation.x = 0.08 * speedRatio;
-      parts.headGroup.rotation.x = -0.04 * speedRatio;
-
-      // Companion Dog Trot (Proportional to follow distance & speed)
-      const dogLegSpeed = Math.max(strideFreq * 1.1, 4.0);
+      // Dog airborne / alert tail
+      this.dogTail.rotation.z = 0;
       for (let i = 0; i < 4; i++) {
-        const phase = (i === 0 || i === 3) ? 0 : Math.PI;
-        const dSwing = Math.sin(walkCycle * 1.2 + phase) * 0.6 * speedRatio;
-        this.dogLegs[i].rotation.x = dSwing;
+        this.dogLegs[i].rotation.x = damp(this.dogLegs[i].rotation.x, 0, 16, dt);
       }
-      this.dogTail.rotation.z = Math.sin(walkCycle * 3) * 0.6;
+    } else if (this.walkWeight > 0.01) {
+      // -------------------------------------------------------------
+      // Walking Locomotion State (Grounded)
+      // -------------------------------------------------------------
+      // Stride frequency directly proportional to ground velocity (eliminates foot sliding)
+      const strideRate = (currentGroundSpeed / this.speed) * 11.0;
+      this.walkCyclePhase += dt * strideRate;
+      const phi = this.walkCyclePhase;
+      const w = this.walkWeight;
+
+      // Leg stride swing
+      const legAmplitude = 0.55 * w;
+      parts.leftLeg.rotation.x = Math.sin(phi) * legAmplitude;
+      parts.rightLeg.rotation.x = -Math.sin(phi) * legAmplitude;
+      parts.leftLeg.rotation.y = 0;
+      parts.rightLeg.rotation.y = 0;
+      parts.leftLeg.rotation.z = 0;
+      parts.rightLeg.rotation.z = 0;
+
+      // Natural opposing arm swing
+      const armAmplitude = 0.45 * w;
+      parts.leftArm.rotation.x = -Math.sin(phi) * armAmplitude;
+      parts.rightArm.rotation.x = Math.sin(phi) * armAmplitude;
+      parts.leftArm.rotation.y = 0;
+      parts.rightArm.rotation.y = 0;
+      parts.leftArm.rotation.z = 0;
+      parts.rightArm.rotation.z = 0;
+
+      // Stable Torso: NO vertical bobbing/shaking. Torso stays anchored at waist pivot (0, 0.22, 0).
+      parts.torsoGroup.position.set(0, 0.22, 0);
+      parts.torsoGroup.rotation.set(0.04 * w, 0, 0); // Very slight natural forward lean while walking
+      parts.headGroup.rotation.set(-0.02 * w, 0, 0); // Head remains steady and level
     } else {
-      // Idle Breathing & Neutral Stance
-      this.animTimer += dt * 2.8;
-      const breath = Math.sin(this.animTimer) * 0.012;
+      // -------------------------------------------------------------
+      // Completely Settled Stable Idle State (ZERO Jiggle, Feet Planted)
+      // -------------------------------------------------------------
+      // Root torso strictly fixed at neutral position
+      parts.torsoGroup.position.set(0, 0.22, 0);
+      parts.torsoGroup.rotation.set(0, 0, 0);
 
-      parts.torsoGroup.position.y = 0.22 + breath;
-      parts.torsoGroup.rotation.x = damp(parts.torsoGroup.rotation.x, 0, 8, dt);
-      parts.torsoGroup.rotation.z = damp(parts.torsoGroup.rotation.z, 0, 8, dt);
-      parts.headGroup.rotation.x = -breath * 1.5;
+      // Return limbs cleanly to neutral rest pose with zero residual motion
+      parts.leftLeg.rotation.set(0, 0, 0);
+      parts.rightLeg.rotation.set(0, 0, 0);
+      parts.leftArm.rotation.set(0, 0, 0);
+      parts.rightArm.rotation.set(0, 0, 0);
+      parts.headGroup.rotation.set(0, 0, 0);
+    }
 
-      // Damped return of limbs to neutral
-      parts.leftLeg.rotation.x = damp(parts.leftLeg.rotation.x, 0, 12, dt);
-      parts.rightLeg.rotation.x = damp(parts.rightLeg.rotation.x, 0, 12, dt);
-      parts.leftArm.rotation.x = damp(parts.leftArm.rotation.x, 0, 12, dt);
-      parts.rightArm.rotation.x = damp(parts.rightArm.rotation.x, 0, 12, dt);
+    // -----------------------------------------------------------------
+    // Dog Quadruped Locomotion & Settled Idle
+    // -----------------------------------------------------------------
+    const targetDogWeight = (dogSpeed > 0.08) ? clamp(dogSpeed / this.speed, 0.2, 1.0) : 0.0;
+    this.dogWalkWeight = damp(this.dogWalkWeight, targetDogWeight, 14, dt);
+    if (this.dogWalkWeight < 0.01) {
+      this.dogWalkWeight = 0;
+    }
 
+    if (this.dogWalkWeight > 0.01) {
+      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 12.0;
+      const dPhi = this.dogWalkPhase;
+      const dw = this.dogWalkWeight;
+
+      // Quadruped diagonal trot pairs: (Front Left + Hind Right) & (Front Right + Hind Left)
+      const trotAmp = 0.5 * dw;
+      this.dogLegs[0].rotation.x = Math.sin(dPhi) * trotAmp;          // Front Left
+      this.dogLegs[1].rotation.x = -Math.sin(dPhi) * trotAmp;         // Front Right
+      this.dogLegs[2].rotation.x = -Math.sin(dPhi) * trotAmp;         // Hind Left
+      this.dogLegs[3].rotation.x = Math.sin(dPhi) * trotAmp;          // Hind Right
+
+      // Gentle tail wagging while trotting
+      this.dogTail.rotation.z = Math.sin(dPhi * 1.5) * 0.4 * dw;
+    } else {
+      // Dog fully settles: feet planted, body resting
       for (let i = 0; i < 4; i++) {
-        this.dogLegs[i].rotation.x = damp(this.dogLegs[i].rotation.x, 0, 10, dt);
+        this.dogLegs[i].rotation.set(0, 0, 0);
       }
-      this.dogTail.rotation.z = Math.sin(this.animTimer * 2) * 0.3;
+      this.dogTail.rotation.z = 0;
     }
   }
 

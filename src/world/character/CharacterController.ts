@@ -283,16 +283,16 @@ export class CharacterController {
       }
     } else if (this.walkWeight > 0.01) {
       // -------------------------------------------------------------
-      // Walking Locomotion State (Grounded) - Calmer Natural Cadence
+      // Walking Locomotion State (Grounded) - Relaxed & Natural Cadence
       // -------------------------------------------------------------
-      // Stride frequency directly proportional to ground velocity (stride rate scaled to ~6.2)
-      const strideRate = (currentGroundSpeed / this.speed) * 6.2;
+      // Stride frequency directly proportional to ground velocity (stride rate set to a calm 3.8)
+      const strideRate = (currentGroundSpeed / this.speed) * 3.8;
       this.walkCyclePhase += dt * strideRate;
       const phi = this.walkCyclePhase;
       const w = this.walkWeight;
 
-      // Leg stride swing: relaxed, natural 0.42 rad amplitude
-      const legAmplitude = 0.42 * w;
+      // Leg stride swing: relaxed, gentle 0.28 rad amplitude (~16 deg)
+      const legAmplitude = 0.28 * w;
       parts.leftLeg.rotation.x = Math.sin(phi) * legAmplitude;
       parts.rightLeg.rotation.x = -Math.sin(phi) * legAmplitude;
       parts.leftLeg.rotation.y = 0;
@@ -300,8 +300,8 @@ export class CharacterController {
       parts.leftLeg.rotation.z = 0;
       parts.rightLeg.rotation.z = 0;
 
-      // Natural gentle opposing arm swing: 0.32 rad amplitude
-      const armAmplitude = 0.32 * w;
+      // Natural gentle opposing arm swing: relaxed 0.20 rad amplitude (~11.5 deg)
+      const armAmplitude = 0.20 * w;
       parts.leftArm.rotation.x = -Math.sin(phi) * armAmplitude;
       parts.rightArm.rotation.x = Math.sin(phi) * armAmplitude;
       parts.leftArm.rotation.y = 0;
@@ -309,10 +309,10 @@ export class CharacterController {
       parts.leftArm.rotation.z = 0;
       parts.rightArm.rotation.z = 0;
 
-      // Stable Torso: firmly anchored at waist pivot, subtle 0.02 forward lean
+      // Stable Torso: firmly anchored at waist pivot, imperceptible 0.015 forward lean
       parts.torsoGroup.position.set(0, 0.22, 0);
-      parts.torsoGroup.rotation.set(0.02 * w, 0, 0);
-      parts.headGroup.rotation.set(-0.01 * w, 0, 0); // Head remains steady and level
+      parts.torsoGroup.rotation.set(0.015 * w, 0, 0);
+      parts.headGroup.rotation.set(0, 0, 0); // Head remains steady and level
     } else {
       // -------------------------------------------------------------
       // Completely Settled Stable Idle State (ZERO Jiggle, Feet Planted)
@@ -339,20 +339,20 @@ export class CharacterController {
     }
 
     if (this.dogWalkWeight > 0.01) {
-      // Calmer quadruped trot phase rate scaled to ~7.0
-      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 7.0;
+      // Calmer quadruped trot phase rate scaled to 4.5
+      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 4.5;
       const dPhi = this.dogWalkPhase;
       const dw = this.dogWalkWeight;
 
-      // Quadruped diagonal trot pairs with gentle 0.35 rad amplitude
-      const trotAmp = 0.35 * dw;
+      // Quadruped diagonal trot pairs with gentle 0.24 rad amplitude (~13.7 deg)
+      const trotAmp = 0.24 * dw;
       this.dogLegs[0].rotation.x = Math.sin(dPhi) * trotAmp;          // Front Left
       this.dogLegs[1].rotation.x = -Math.sin(dPhi) * trotAmp;         // Front Right
       this.dogLegs[2].rotation.x = -Math.sin(dPhi) * trotAmp;         // Hind Left
       this.dogLegs[3].rotation.x = Math.sin(dPhi) * trotAmp;          // Hind Right
 
       // Gentle tail wagging while trotting
-      this.dogTail.rotation.z = Math.sin(dPhi * 1.5) * 0.25 * dw;
+      this.dogTail.rotation.z = Math.sin(dPhi * 1.5) * 0.20 * dw;
     } else {
       // Dog fully settles: feet planted, body resting
       for (let i = 0; i < 4; i++) {

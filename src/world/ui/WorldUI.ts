@@ -280,6 +280,31 @@ export class WorldUI {
     this.modeToggleBtn.onclick = () => this.onModeToggleCallback?.();
     this.container.appendChild(this.modeToggleBtn);
 
+    // Live Build Version Badge (Top-Right under Mode Toggle)
+    const versionBadge = document.createElement('div');
+    versionBadge.id = 'island-haat-version-badge';
+    versionBadge.style.cssText = `
+      position: absolute;
+      top: 130px; right: 24px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      z-index: 10;
+    `;
+    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v2.4.0 (Calm Locomotion)`;
+    this.container.appendChild(versionBadge);
+
     // =========================================================================
     // 2. BOTTOM HAND DECK
     // =========================================================================

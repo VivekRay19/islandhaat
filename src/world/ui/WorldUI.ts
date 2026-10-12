@@ -303,7 +303,7 @@ export class WorldUI {
       gap: 5px;
       z-index: 10;
     `;
-    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v3.0.0 (Skeletal Rigging)`;
+    versionBadge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> v3.1.0 (Multi-Joint Rig Overhaul)`;
     this.container.appendChild(versionBadge);
 
     // Isolated Animation Stage Trigger Button

@@ -3,20 +3,30 @@ import { Materials } from '../graphics/Materials';
 import { TerrainField } from '../hex/TerrainField';
 import { clamp, damp, dampAngle, lerp } from '../core/math';
 import { IndianState } from '../culture/CultureTypes';
-import { CulturalSpecialistBuilder, SpecialistParts } from '../graphics/CulturalSpecialistBuilder';
+import { CulturalSpecialistRigBuilder, SpecialistJointRig } from '../graphics/CulturalSpecialistRigBuilder';
+
+export interface DogQuadrupedRig {
+  root: THREE.Group;
+  body: THREE.Mesh;
+  head: THREE.Mesh;
+  ears: THREE.Mesh;
+  tail: THREE.Group;
+  frontLeftHip: THREE.Group;
+  frontLeftKnee: THREE.Group;
+  frontRightHip: THREE.Group;
+  frontRightKnee: THREE.Group;
+  hindLeftHip: THREE.Group;
+  hindLeftKnee: THREE.Group;
+  hindRightHip: THREE.Group;
+  hindRightKnee: THREE.Group;
+}
 
 export class CharacterController {
   public mesh: THREE.Group;
   public dogMesh: THREE.Group;
   public culture: IndianState;
-  private specialist: SpecialistParts;
-
-  // Companion Dog parts
-  private dogBody: THREE.Mesh;
-  private dogHead: THREE.Mesh;
-  private dogEars: THREE.Mesh;
-  private dogTail: THREE.Mesh;
-  private dogLegs: THREE.Mesh[] = [];
+  private specialistRig: SpecialistJointRig;
+  private dogRig!: DogQuadrupedRig;
 
   public position: THREE.Vector3 = new THREE.Vector3(0, 0.34, 0);
   public velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -42,98 +52,130 @@ export class CharacterController {
     this.culture = culture;
 
     // =========================================================================
-    // 1. ARTICULATED STYLIZED SPECIALIST CHARACTER
+    // 1. ADVANCED MULTI-JOINT ARTICULATED SPECIALIST CHARACTER
     // =========================================================================
     this.mesh = new THREE.Group();
 
-    // Dedicated Culture Specialist Model with Articulated Limbs
-    this.specialist = CulturalSpecialistBuilder.createSpecialist(culture);
-    this.mesh.add(this.specialist.root);
+    // Dedicated Culture Specialist Model with True Anatomical Joint Rig
+    this.specialistRig = CulturalSpecialistRigBuilder.createRig(culture);
+    this.mesh.add(this.specialistRig.root);
     this.mesh.visible = false; // Hidden in Build Mode initially
     scene.add(this.mesh);
 
     // =========================================================================
-    // 2. COMPANION PUPPY / DOG (Stylized Rounded Geometry)
+    // 2. ADVANCED QUADRUPED DOG RIG (Multi-Joint Paws, Knees & Tail)
     // =========================================================================
     this.dogMesh = new THREE.Group();
     const dogWhite = new THREE.MeshStandardMaterial({ color: 0xfbfbfb, roughness: 0.65 });
     const dogBrown = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.7 });
     const dogNose = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3 });
-    const dogCollar = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 }); // Red puppy collar
+    const dogCollar = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
 
     // Rounded Body (Smooth Capsule/Cylinder geometry)
-    this.dogBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12), dogWhite);
-    this.dogBody.rotation.x = Math.PI / 2;
-    this.dogBody.position.y = 0.13;
-    this.dogBody.castShadow = true;
-    this.dogMesh.add(this.dogBody);
+    const dogBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12), dogWhite);
+    dogBody.rotation.x = Math.PI / 2;
+    dogBody.position.y = 0.13;
+    dogBody.castShadow = true;
+    this.dogMesh.add(dogBody);
 
-    // Warm Brown Patch on Body
     const patch = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), dogBrown);
     patch.scale.set(0.9, 0.6, 1.1);
     patch.position.set(0.03, 0.04, 0.01);
-    this.dogBody.add(patch);
+    dogBody.add(patch);
 
-    // Cute Collar
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.015, 6, 16), dogCollar);
     collar.position.set(0, 0.08, 0);
-    this.dogBody.add(collar);
+    dogBody.add(collar);
 
     // Rounded Head
-    this.dogHead = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 12), dogWhite);
-    this.dogHead.position.set(0, 0.21, 0.12);
-    this.dogHead.castShadow = true;
-    this.dogMesh.add(this.dogHead);
+    const dogHead = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 12), dogWhite);
+    dogHead.position.set(0, 0.21, 0.12);
+    dogHead.castShadow = true;
+    this.dogMesh.add(dogHead);
 
     // Floppy Drooping Ears
     const leftEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
     leftEar.position.set(-0.07, 0.03, -0.01);
     leftEar.rotation.z = 0.35;
     leftEar.rotation.x = 0.2;
-    this.dogHead.add(leftEar);
+    dogHead.add(leftEar);
 
     const rightEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
     rightEar.position.set(0.07, 0.03, -0.01);
     rightEar.rotation.z = -0.35;
     rightEar.rotation.x = 0.2;
-    this.dogHead.add(rightEar);
-    this.dogEars = leftEar;
+    dogHead.add(rightEar);
 
-    // Rounded Snout & Shiny Button Nose
+    // Snout & Button Nose
     const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.06, 8), dogWhite);
     snout.rotation.x = Math.PI / 2;
     snout.position.set(0, -0.02, 0.08);
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), dogNose);
     nose.position.set(0, 0.03, 0.02);
     snout.add(nose);
-    this.dogHead.add(snout);
+    dogHead.add(snout);
 
-    // Playful Tail
-    this.dogTail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.13, 8), dogBrown);
-    this.dogTail.position.set(0, 0.18, -0.12);
-    this.dogTail.rotation.x = -Math.PI / 3.5;
-    this.dogMesh.add(this.dogTail);
+    // Multi-Segment Tail Hierarchy
+    const dogTail = new THREE.Group();
+    dogTail.position.set(0, 0.17, -0.11);
+    this.dogMesh.add(dogTail);
 
-    // 4 Articulated Little Rounded Paws / Legs with hip pivot groups
-    const legOffsets = [
-      { x: -0.055, z: 0.065 }, // 0: Front Left
-      { x: 0.055, z: 0.065 },  // 1: Front Right
-      { x: -0.055, z: -0.065 }, // 2: Hind Left
-      { x: 0.055, z: -0.065 }  // 3: Hind Right
-    ];
-    legOffsets.forEach((lo) => {
-      const legPivot = new THREE.Group();
-      legPivot.position.set(lo.x, 0.09, lo.z);
-      const legMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.024, 0.09, 8), dogWhite);
-      legMesh.position.set(0, -0.045, 0);
-      legMesh.castShadow = true;
-      legPivot.add(legMesh);
-      this.dogMesh.add(legPivot);
-      this.dogLegs.push(legPivot as any);
-    });
+    const tailBase = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.020, 0.07, 8), dogBrown);
+    tailBase.position.set(0, 0.03, -0.02);
+    tailBase.rotation.x = -Math.PI / 4;
+    dogTail.add(tailBase);
+
+    const tailTip = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.016, 0.07, 8), dogWhite);
+    tailTip.position.set(0, 0.07, -0.05);
+    tailTip.rotation.x = -Math.PI / 3.5;
+    dogTail.add(tailTip);
+
+    // 4 Quadruped Legs with 2-Joint Articulation (Hip -> Thigh -> Knee -> Shin / Paw)
+    const createQuadLeg = (x: number, z: number) => {
+      const hip = new THREE.Group();
+      hip.position.set(x, 0.10, z);
+      this.dogMesh.add(hip);
+
+      const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.018, 0.06, 8), dogWhite);
+      thigh.position.set(0, -0.03, 0);
+      thigh.castShadow = true;
+      hip.add(thigh);
+
+      const knee = new THREE.Group();
+      knee.position.set(0, -0.06, 0);
+      hip.add(knee);
+
+      const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.020, 0.05, 8), dogWhite);
+      shin.position.set(0, -0.025, 0.005);
+      shin.castShadow = true;
+      knee.add(shin);
+
+      return { hip, knee };
+    };
+
+    const fl = createQuadLeg(-0.055, 0.065);
+    const fr = createQuadLeg(0.055, 0.065);
+    const hl = createQuadLeg(-0.055, -0.065);
+    const hr = createQuadLeg(0.055, -0.065);
+
+    this.dogRig = {
+      root: this.dogMesh,
+      body: dogBody,
+      head: dogHead,
+      ears: leftEar,
+      tail: dogTail,
+      frontLeftHip: fl.hip,
+      frontLeftKnee: fl.knee,
+      frontRightHip: fr.hip,
+      frontRightKnee: fr.knee,
+      hindLeftHip: hl.hip,
+      hindLeftKnee: hl.knee,
+      hindRightHip: hr.hip,
+      hindRightKnee: hr.knee
+    };
 
     this.dogMesh.scale.set(0.9, 0.9, 0.9);
-    this.dogMesh.visible = false; // Hidden in Build Mode initially
+    this.dogMesh.visible = false;
     scene.add(this.dogMesh);
   }
 
@@ -256,7 +298,10 @@ export class CharacterController {
     // =========================================================================
     // 6. ANIMATION CONTROLLER (Clean State Blending & Zero Residual Jiggle)
     // =========================================================================
-    const parts = this.specialist;
+    // 6. MULTI-JOINT KINEMATICS ANIMATION (Layered Articulation & Settled Idle)
+    // =========================================================================
+    const rig = this.specialistRig;
+    const dog = this.dogRig;
 
     // Smoothly blend walk weight: 1.0 when moving, 0.0 when stopped (200ms transition)
     const targetWalkWeight = (this.isGrounded && this.isMoving) ? clamp(currentGroundSpeed / this.speed, 0.2, 1.0) : 0.0;
@@ -266,93 +311,135 @@ export class CharacterController {
     }
 
     if (!this.isGrounded) {
-      // Jump / Fall Airborne Pose
+      // -------------------------------------------------------------
+      // Airborne Jump & Fall Articulation
+      // -------------------------------------------------------------
       const jumpRatio = clamp(this.velocity.y / this.jumpForce, -1, 1);
-      parts.torsoGroup.position.set(0, 0.22, 0);
-      parts.torsoGroup.rotation.set(jumpRatio * -0.12, 0, 0);
-      parts.leftLeg.rotation.set(0.35 + jumpRatio * 0.1, 0, 0);
-      parts.rightLeg.rotation.set(-0.25 - jumpRatio * 0.1, 0, 0);
-      parts.leftArm.rotation.set(-0.5 - jumpRatio * 0.2, 0, 0);
-      parts.rightArm.rotation.set(-0.4 - jumpRatio * 0.2, 0, 0);
-      parts.headGroup.rotation.set(0.08 - jumpRatio * 0.1, 0, 0);
+      
+      rig.pelvis.position.set(0, 0.22, 0);
+      rig.pelvis.rotation.set(jumpRatio * -0.10, 0, 0);
+      rig.spineUpper.rotation.set(-jumpRatio * 0.08, 0, 0);
+      rig.head.rotation.set(0.08 - jumpRatio * 0.10, 0, 0);
 
-      // Dog airborne / alert tail
-      this.dogTail.rotation.z = 0;
-      for (let i = 0; i < 4; i++) {
-        this.dogLegs[i].rotation.x = damp(this.dogLegs[i].rotation.x, 0, 16, dt);
-      }
+      // Legs tuck and extend
+      rig.leftThigh.rotation.set(0.35 + jumpRatio * 0.12, 0, 0);
+      rig.leftKnee.rotation.set(0.40 - jumpRatio * 0.20, 0, 0); // knee bends during apex
+      rig.leftAnkle.rotation.set(0.15, 0, 0);
+
+      rig.rightThigh.rotation.set(-0.20 - jumpRatio * 0.10, 0, 0);
+      rig.rightKnee.rotation.set(0.25, 0, 0);
+      rig.rightAnkle.rotation.set(-0.10, 0, 0);
+
+      // Arms reach dynamically
+      rig.leftUpperArm.rotation.set(-0.45 - jumpRatio * 0.25, 0, -0.15);
+      rig.leftElbow.rotation.set(-0.30, 0, 0);
+      rig.rightUpperArm.rotation.set(-0.35 - jumpRatio * 0.20, 0, 0.15);
+      rig.rightElbow.rotation.set(-0.25, 0, 0);
+
+      // Dog airborne pose
+      dog.tail.rotation.z = 0;
+      dog.frontLeftHip.rotation.x = damp(dog.frontLeftHip.rotation.x, 0.2, 12, dt);
+      dog.frontRightHip.rotation.x = damp(dog.frontRightHip.rotation.x, 0.2, 12, dt);
+      dog.hindLeftHip.rotation.x = damp(dog.hindLeftHip.rotation.x, -0.2, 12, dt);
+      dog.hindRightHip.rotation.x = damp(dog.hindRightHip.rotation.x, -0.2, 12, dt);
+      dog.frontLeftKnee.rotation.x = 0;
+      dog.frontRightKnee.rotation.x = 0;
+      dog.hindLeftKnee.rotation.x = 0;
+      dog.hindRightKnee.rotation.x = 0;
     } else if (this.walkWeight > 0.01) {
       // -------------------------------------------------------------
-      // 2-Phase Organic Bob-and-Step Locomotion (Warm Stylized Walk)
+      // Layered Multi-Joint Locomotion Gait (Fluid Humanoid Kinematics)
       // -------------------------------------------------------------
-      // Natural walking cadence (~1.8 steps per second at full speed)
-      const cadence = (currentGroundSpeed / this.speed) * 4.8;
+      const cadence = (currentGroundSpeed / this.speed) * 4.6;
       this.walkCyclePhase += dt * cadence;
       const phi = this.walkCyclePhase;
       const w = this.walkWeight;
 
-      // 1. Organic Leg Kinematics:
-      // In real walking, support leg pushes back while swing leg bends up and forward
-      const sinLeg = Math.sin(phi);
-      const cosLeg = Math.cos(phi);
+      const sinGait = Math.sin(phi);
+      const cosGait = Math.cos(phi);
 
-      // Main stride swing (calm 0.32 rad ~ 18 deg)
-      parts.leftLeg.rotation.x = sinLeg * 0.32 * w;
-      parts.rightLeg.rotation.x = -sinLeg * 0.32 * w;
+      // 1. Lower Body: Thigh swing, Knee flex on swing phase, Ankle toe-off
+      // Thigh forward/back angle
+      rig.leftThigh.rotation.x = sinGait * 0.35 * w;
+      rig.rightThigh.rotation.x = -sinGait * 0.35 * w;
 
-      // Subtle knee lift during forward swing (knee/ankle clearance)
-      const leftLift = Math.max(0, sinLeg) * 0.035 * w;
-      const rightLift = Math.max(0, -sinLeg) * 0.035 * w;
-      parts.leftLeg.position.y = leftLift;
-      parts.rightLeg.position.y = rightLift;
+      // Realistic Knee Flexion: Knee only flexes backwards (rotation.x > 0) when leg is swinging forward
+      const leftKneeFlex = Math.max(0, sinGait) * 0.45 * w;
+      const rightKneeFlex = Math.max(0, -sinGait) * 0.45 * w;
+      rig.leftKnee.rotation.x = leftKneeFlex;
+      rig.rightKnee.rotation.x = rightKneeFlex;
 
-      // Subtle lateral hip sway (weight transfer onto supporting foot)
-      const hipSway = Math.sin(phi) * 0.012 * w;
-      parts.torsoGroup.position.x = hipSway;
+      // Ankle ground alignment: flexes slightly up during forward step, pushes back at toe-off
+      rig.leftAnkle.rotation.x = -sinGait * 0.18 * w;
+      rig.rightAnkle.rotation.x = sinGait * 0.18 * w;
 
-      // Rhythmic step bounce: two subtle dips per stride cycle
-      const stepBounce = -Math.abs(sinLeg) * 0.014 * w;
-      parts.torsoGroup.position.y = 0.22 + stepBounce;
+      // Lateral weight shift onto supporting hip
+      const hipShift = Math.sin(phi) * 0.010 * w;
+      rig.pelvis.position.x = hipShift;
+      rig.pelvis.position.y = 0.22 - Math.abs(sinGait) * 0.012 * w; // gentle step compression
 
-      // Subtle pelvis & shoulder twist around vertical axis Y
-      parts.torsoGroup.rotation.y = -sinLeg * 0.04 * w;
-      parts.torsoGroup.rotation.z = -hipSway * 1.5;
-      parts.torsoGroup.rotation.x = 0.02 * w; // gentle forward posture
+      // Pelvic counter-rotation around vertical Y
+      rig.pelvis.rotation.y = -sinGait * 0.035 * w;
+      rig.pelvis.rotation.z = -hipShift * 1.2;
+      rig.pelvis.rotation.x = 0.015 * w; // gentle forward lean
 
-      // 2. Natural Arm Counter-Balance:
-      // Arms counter-swing opposite to legs with a relaxed outward flare and subtle roll
-      parts.leftArm.rotation.x = -sinLeg * 0.24 * w;
-      parts.rightArm.rotation.x = sinLeg * 0.24 * w;
-      parts.leftArm.rotation.z = -0.06 - Math.abs(cosLeg) * 0.03 * w; // natural resting hang
-      parts.rightArm.rotation.z = 0.06 + Math.abs(cosLeg) * 0.03 * w;
-      parts.leftArm.rotation.y = 0;
-      parts.rightArm.rotation.y = 0;
+      // 2. Spine & Chest Counter-Twist
+      rig.spineLower.rotation.y = sinGait * 0.02 * w;
+      rig.chest.rotation.y = sinGait * 0.03 * w;
 
-      // 3. Steady Gaze & Stabilized Head
-      parts.headGroup.rotation.y = sinLeg * 0.03 * w; // slight counter-turn to keep eyes forward
-      parts.headGroup.rotation.x = -0.01 * w;
-      parts.headGroup.rotation.z = hipSway * 0.8;
+      // 3. Clavicles, Shoulders, Elbows & Wrists
+      // Opposing arm swing with elbow flex during backward push and forward bend
+      rig.leftUpperArm.rotation.x = -sinGait * 0.26 * w;
+      rig.rightUpperArm.rotation.x = sinGait * 0.26 * w;
+
+      rig.leftUpperArm.rotation.z = -0.08 - Math.abs(cosGait) * 0.02 * w;
+      rig.rightUpperArm.rotation.z = 0.08 + Math.abs(cosGait) * 0.02 * w;
+
+      // Natural Elbow flex (forearm stays slightly bent forward: -0.15 to -0.35 rad)
+      rig.leftElbow.rotation.x = (-0.18 + Math.max(0, -sinGait) * 0.25) * w;
+      rig.rightElbow.rotation.x = (-0.18 + Math.max(0, sinGait) * 0.25) * w;
+
+      // Wrist relaxation
+      rig.leftWrist.rotation.x = sinGait * 0.10 * w;
+      rig.rightWrist.rotation.x = -sinGait * 0.10 * w;
+
+      // 4. Stabilized Head Gaze
+      rig.head.rotation.y = sinGait * 0.025 * w;
+      rig.head.rotation.x = -0.01 * w;
+      rig.head.rotation.z = hipShift * 0.7;
     } else {
       // -------------------------------------------------------------
-      // Completely Settled Stable Idle State (ZERO Jiggle, Feet Planted)
+      // Completely Settled Stable Neutral Pose (Zero Jiggle, Zero Drift)
       // -------------------------------------------------------------
-      // Reset torso group cleanly to neutral
-      parts.torsoGroup.position.set(0, 0.22, 0);
-      parts.torsoGroup.rotation.set(0, 0, 0);
+      rig.pelvis.position.set(0, 0.22, 0);
+      rig.pelvis.rotation.set(0, 0, 0);
+      rig.spineLower.rotation.set(0, 0, 0);
+      rig.spineUpper.rotation.set(0, 0, 0);
+      rig.chest.rotation.set(0, 0, 0);
+      rig.neck.rotation.set(0, 0, 0);
+      rig.head.rotation.set(0, 0, 0);
 
-      // Return limbs cleanly to neutral rest pose
-      parts.leftLeg.position.set(-0.065, 0, 0);
-      parts.rightLeg.position.set(0.065, 0, 0);
-      parts.leftLeg.rotation.set(0, 0, 0);
-      parts.rightLeg.rotation.set(0, 0, 0);
+      // Arms rest gently at sides
+      rig.leftUpperArm.rotation.set(0, 0, -0.08);
+      rig.leftElbow.rotation.set(-0.10, 0, 0);
+      rig.leftWrist.rotation.set(0, 0, 0);
 
-      parts.leftArm.rotation.set(0, 0, -0.06);
-      parts.rightArm.rotation.set(0, 0, 0.06);
-      parts.headGroup.rotation.set(0, 0, 0);
+      rig.rightUpperArm.rotation.set(0, 0, 0.08);
+      rig.rightElbow.rotation.set(-0.10, 0, 0);
+      rig.rightWrist.rotation.set(0, 0, 0);
+
+      // Legs stand straight and planted
+      rig.leftThigh.rotation.set(0, 0, 0);
+      rig.leftKnee.rotation.set(0, 0, 0);
+      rig.leftAnkle.rotation.set(0, 0, 0);
+
+      rig.rightThigh.rotation.set(0, 0, 0);
+      rig.rightKnee.rotation.set(0, 0, 0);
+      rig.rightAnkle.rotation.set(0, 0, 0);
     }
 
     // -----------------------------------------------------------------
-    // Dog Quadruped Locomotion & Settled Idle (Organic Bouncing Trot)
+    // Dog Quadruped 2-Joint Locomotion & Settled Idle
     // -----------------------------------------------------------------
     const targetDogWeight = (dogSpeed > 0.08) ? clamp(dogSpeed / this.speed, 0.2, 1.0) : 0.0;
     this.dogWalkWeight = damp(this.dogWalkWeight, targetDogWeight, 14, dt);
@@ -361,29 +448,39 @@ export class CharacterController {
     }
 
     if (this.dogWalkWeight > 0.01) {
-      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 5.6;
+      this.dogWalkPhase += dt * (dogSpeed / this.speed) * 5.4;
       const dPhi = this.dogWalkPhase;
       const dw = this.dogWalkWeight;
 
-      // Quadruped diagonal trot pairs with gentle step lift
-      const trotAmp = 0.26 * dw;
-      this.dogLegs[0].rotation.x = Math.sin(dPhi) * trotAmp;          // Front Left
-      this.dogLegs[1].rotation.x = -Math.sin(dPhi) * trotAmp;         // Front Right
-      this.dogLegs[2].rotation.x = -Math.sin(dPhi) * trotAmp;         // Hind Left
-      this.dogLegs[3].rotation.x = Math.sin(dPhi) * trotAmp;          // Hind Right
+      // Diagonal trot pairs with true hip swing + knee flexion
+      const trotAmp = 0.28 * dw;
+      dog.frontLeftHip.rotation.x = Math.sin(dPhi) * trotAmp;
+      dog.frontLeftKnee.rotation.x = Math.max(0, Math.sin(dPhi)) * 0.25 * dw;
 
-      // Subtle playful puppy body bobbing
-      this.dogBody.position.y = 0.13 + Math.abs(Math.sin(dPhi)) * 0.008 * dw;
+      dog.frontRightHip.rotation.x = -Math.sin(dPhi) * trotAmp;
+      dog.frontRightKnee.rotation.x = Math.max(0, -Math.sin(dPhi)) * 0.25 * dw;
 
-      // Gentle tail wagging while trotting
-      this.dogTail.rotation.z = Math.sin(dPhi * 2.0) * 0.25 * dw;
+      dog.hindLeftHip.rotation.x = -Math.sin(dPhi) * trotAmp;
+      dog.hindLeftKnee.rotation.x = Math.max(0, -Math.sin(dPhi)) * 0.25 * dw;
+
+      dog.hindRightHip.rotation.x = Math.sin(dPhi) * trotAmp;
+      dog.hindRightKnee.rotation.x = Math.max(0, Math.sin(dPhi)) * 0.25 * dw;
+
+      // Puppy body bob & gentle tail wag
+      dog.body.position.y = 0.13 + Math.abs(Math.sin(dPhi)) * 0.007 * dw;
+      dog.tail.rotation.z = Math.sin(dPhi * 2.0) * 0.24 * dw;
     } else {
-      // Dog fully settles: feet planted, body resting
-      this.dogBody.position.y = 0.13;
-      for (let i = 0; i < 4; i++) {
-        this.dogLegs[i].rotation.set(0, 0, 0);
-      }
-      this.dogTail.rotation.z = 0;
+      // Dog fully settles on all 4 planted paws
+      dog.body.position.y = 0.13;
+      dog.frontLeftHip.rotation.set(0, 0, 0);
+      dog.frontLeftKnee.rotation.set(0, 0, 0);
+      dog.frontRightHip.rotation.set(0, 0, 0);
+      dog.frontRightKnee.rotation.set(0, 0, 0);
+      dog.hindLeftHip.rotation.set(0, 0, 0);
+      dog.hindLeftKnee.rotation.set(0, 0, 0);
+      dog.hindRightHip.rotation.set(0, 0, 0);
+      dog.hindRightKnee.rotation.set(0, 0, 0);
+      dog.tail.rotation.z = 0;
     }
   }
 

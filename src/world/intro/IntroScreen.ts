@@ -196,6 +196,24 @@ export class IntroScreen {
     };
     uiLayer.appendChild(langBtn);
 
+    // Version Badge on Loading / Intro Screen
+    const introVersion = document.createElement('div');
+    introVersion.id = 'intro-screen-version';
+    introVersion.style.cssText = `
+      position: absolute;
+      bottom: 28px; left: 160px;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(226, 232, 240, 0.6);
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    `;
+    introVersion.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> Island Haat v2.6.0`;
+    uiLayer.appendChild(introVersion);
+
     // Bottom-Right: Social & Help Icons
     const socialGroup = document.createElement('div');
     socialGroup.style.cssText = `

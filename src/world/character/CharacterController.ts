@@ -5,6 +5,85 @@ import { clamp, damp, dampAngle, lerp } from '../core/math';
 import { IndianState } from '../culture/CultureTypes';
 import { CulturalSpecialistBuilder, SpecialistParts } from '../graphics/CulturalSpecialistBuilder';
 
+export interface AnimationTuningSettings {
+  legSpeed: number;           // 0.15x - 1.25x
+  armSpeed: number;           // 0.15x - 1.25x
+  legSwingIntensity: number;  // 0.15x - 1.00x
+  armSwingIntensity: number;  // 0.15x - 1.00x
+  blendSpeed: number;         // 0.25x - 2.00x
+  dogSpeed: number;           // 0.15x - 1.25x
+  dogSwingIntensity: number;  // 0.15x - 1.00x
+  linkedGait: boolean;        // default: true
+  diagnosticSlowWalk: boolean;// default: false
+}
+
+export const ANIMATION_PRESETS: Record<string, AnimationTuningSettings> = {
+  ULTRA_SLOW: {
+    legSpeed: 0.15,
+    armSpeed: 0.15,
+    legSwingIntensity: 0.30,
+    armSwingIntensity: 0.30,
+    blendSpeed: 1.0,
+    dogSpeed: 0.20,
+    dogSwingIntensity: 0.35,
+    linkedGait: true,
+    diagnosticSlowWalk: false
+  },
+  VERY_SLOW: {
+    legSpeed: 0.30,
+    armSpeed: 0.30,
+    legSwingIntensity: 0.45,
+    armSwingIntensity: 0.45,
+    blendSpeed: 1.0,
+    dogSpeed: 0.30,
+    dogSwingIntensity: 0.45,
+    linkedGait: true,
+    diagnosticSlowWalk: false
+  },
+  SLOW: {
+    legSpeed: 0.50,
+    armSpeed: 0.50,
+    legSwingIntensity: 0.60,
+    armSwingIntensity: 0.60,
+    blendSpeed: 1.0,
+    dogSpeed: 0.50,
+    dogSwingIntensity: 0.60,
+    linkedGait: true,
+    diagnosticSlowWalk: false
+  },
+  MODERATE: {
+    legSpeed: 0.75,
+    armSpeed: 0.75,
+    legSwingIntensity: 0.80,
+    armSwingIntensity: 0.80,
+    blendSpeed: 1.0,
+    dogSpeed: 0.75,
+    dogSwingIntensity: 0.80,
+    linkedGait: true,
+    diagnosticSlowWalk: false
+  },
+  ORIGINAL: {
+    legSpeed: 1.00,
+    armSpeed: 1.00,
+    legSwingIntensity: 1.00,
+    armSwingIntensity: 1.00,
+    blendSpeed: 1.0,
+    dogSpeed: 1.00,
+    dogSwingIntensity: 1.00,
+    linkedGait: true,
+    diagnosticSlowWalk: false
+  }
+};
+
+export const BASE_WALK_CADENCE = 6.0;   // rad/s at full walk speed
+export const BASE_LEG_SWING = 0.65;     // max leg rotation in radians (~37°)
+export const BASE_ARM_SWING = 0.55;     // max arm rotation in radians (~31°)
+export const BASE_DOG_CADENCE = 6.5;    // dog step cadence in rad/s
+export const BASE_DOG_SWING = 0.45;     // dog leg rotation in radians (~26°)
+export const BASE_BLEND_SPEED = 14.0;   // blend transition damp rate
+export const NORMAL_WALK_SPEED = 3.6;   // normal character horizontal speed
+export const DIAGNOSTIC_WALK_SPEED = 1.44; // 0.4x walk speed for diagnostic inspection
+
 export class CharacterController {
   public mesh: THREE.Group;
   public dogMesh: THREE.Group;
@@ -135,81 +214,43 @@ export class CharacterController {
     this.dogMesh.scale.set(0.9, 0.9, 0.9);
     this.dogMesh.visible = false; // Hidden in Build Mode initially
     scene.add(this.dogMesh);
-    CharacterController.initSpeedTuner();
+
+    this.loadTuningSettings();
   }
 
-  // Animation speed tuning (Ultra-slow default: 1.5 rad/s ~ 4.2s per cycle)
-  public static walkAnimSpeed: number = 1.5;
-  private static toastTimeout: any = null;
+  // Animation Tuning Settings & Presets
+  public tuning: AnimationTuningSettings = { ...ANIMATION_PRESETS.ULTRA_SLOW };
 
-  private static initSpeedTuner(): void {
-    if (typeof window === 'undefined' || (window as any).__haatTunerInitialized) return;
-    (window as any).__haatTunerInitialized = true;
-
-    (window as any).setHaatAnimSpeed = (speed: number) => {
-      CharacterController.walkAnimSpeed = Math.max(0.2, Math.min(8.0, speed));
-      CharacterController.showSpeedToast();
-    };
-    (window as any).getHaatAnimSpeed = () => CharacterController.walkAnimSpeed;
-
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      if (e.key === '[' || e.key === '{') {
-        CharacterController.walkAnimSpeed = Math.max(0.3, +(CharacterController.walkAnimSpeed - 0.2).toFixed(2));
-        CharacterController.showSpeedToast();
-      } else if (e.key === ']' || e.key === '}') {
-        CharacterController.walkAnimSpeed = Math.min(6.0, +(CharacterController.walkAnimSpeed + 0.2).toFixed(2));
-        CharacterController.showSpeedToast();
-      }
-    });
-  }
-
-  private static showSpeedToast(): void {
-    if (typeof document === 'undefined') return;
-    let toast = document.getElementById('haat-speed-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'haat-speed-toast';
-      toast.style.cssText = `
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        background: rgba(15, 23, 42, 0.92);
-        border: 1px solid rgba(245, 158, 11, 0.6);
-        color: #fef08a;
-        padding: 8px 14px;
-        border-radius: 10px;
-        font-family: system-ui, sans-serif;
-        font-size: 13px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        z-index: 99999;
-        pointer-events: none;
-        backdrop-filter: blur(8px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-        transition: opacity 0.3s ease, transform 0.3s ease;
-      `;
-      document.body.appendChild(toast);
+  public applyPreset(presetKey: keyof typeof ANIMATION_PRESETS): void {
+    if (ANIMATION_PRESETS[presetKey]) {
+      this.tuning = { ...ANIMATION_PRESETS[presetKey] };
+      this.saveTuningSettings();
+      console.log(`[Island Haat] Applied animation preset: ${presetKey}`);
     }
-    toast.textContent = `🚶 Animation Speed: ${CharacterController.walkAnimSpeed.toFixed(1)} rad/s (Keys [ / ] to tune)`;
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-    if (CharacterController.toastTimeout) clearTimeout(CharacterController.toastTimeout);
-    CharacterController.toastTimeout = setTimeout(() => {
-      if (toast) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(10px)';
-      }
-    }, 2200);
-    console.log(`[Island Haat] 🚶 Walk animation speed: ${CharacterController.walkAnimSpeed.toFixed(1)} rad/s`);
   }
 
-  // Animation state weights and phases
+  public saveTuningSettings(): void {
+    try {
+      localStorage.setItem('islandhaat_anim_tuning', JSON.stringify(this.tuning));
+    } catch (_) {}
+  }
+
+  public loadTuningSettings(): void {
+    try {
+      const saved = localStorage.getItem('islandhaat_anim_tuning');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.tuning = { ...ANIMATION_PRESETS.ULTRA_SLOW, ...parsed };
+      }
+    } catch (_) {}
+  }
+
+  // Animation state weights and phases (independent leg, arm, dog phases)
   private walkWeight: number = 0.0;
-  private walkCyclePhase: number = 0.0;
+  private legPhase: number = 0.0;
+  private armPhase: number = 0.0;
   private dogWalkWeight: number = 0.0;
-  private dogWalkPhase: number = 0.0;
+  private dogPhase: number = 0.0;
 
   public setPosition(x: number, z: number, terrain: TerrainField): void {
     this.position.x = x;
@@ -217,9 +258,10 @@ export class CharacterController {
     this.position.y = terrain.getHeight(x, z);
     this.velocity.set(0, 0, 0);
     this.walkWeight = 0;
-    this.walkCyclePhase = 0;
+    this.legPhase = 0;
+    this.armPhase = 0;
     this.dogWalkWeight = 0;
-    this.dogWalkPhase = 0;
+    this.dogPhase = 0;
     this.mesh.position.copy(this.position);
 
     this.dogPos.set(x - 0.4, this.position.y, z + 0.3);
@@ -322,13 +364,14 @@ export class CharacterController {
     }
 
     // =========================================================================
-    // 6. ANIMATION CONTROLLER (Clean State Blending & Zero Residual Jiggle)
+    // 6. ANIMATION CONTROLLER (Tunable Cadence, Intensity, and State Blending)
     // =========================================================================
     const parts = this.specialist;
 
-    // Smoothly blend walk weight: 1.0 when moving, 0.0 when stopped (200ms transition)
+    // Smoothly blend walk weight: 1.0 when moving, 0.0 when stopped
     const targetWalkWeight = (this.isGrounded && this.isMoving) ? clamp(currentGroundSpeed / this.speed, 0.2, 1.0) : 0.0;
-    this.walkWeight = damp(this.walkWeight, targetWalkWeight, 14, dt);
+    const blendRate = BASE_BLEND_SPEED * this.tuning.blendSpeed;
+    this.walkWeight = damp(this.walkWeight, targetWalkWeight, blendRate, dt);
     if (this.walkWeight < 0.01) {
       this.walkWeight = 0;
     }
@@ -351,41 +394,60 @@ export class CharacterController {
       }
     } else if (this.walkWeight > 0.01) {
       // -----------------------------------------------------------------------
-      // Ultra-Slow Locomotion Gait (Inspectable Speed Pass for Tuning)
+      // Tunable Locomotion Gait (Phase advances only while actively moving)
       // -----------------------------------------------------------------------
-      const speedFactor = Math.max(0.65, currentGroundSpeed / this.speed);
-      const strideRate = speedFactor * CharacterController.walkAnimSpeed;
-      this.walkCyclePhase += dt * strideRate;
-      const phi = this.walkCyclePhase;
-      const w = this.walkWeight;
+      const speedRatio = Math.max(0.2, currentGroundSpeed / this.speed);
+      const legCadence = speedRatio * BASE_WALK_CADENCE * this.tuning.legSpeed;
+      this.legPhase += dt * legCadence;
 
-      // Ultra-gentle step bob (6mm rhythmic vertical step cadence)
-      const stepBob = Math.abs(Math.sin(phi)) * 0.008 * w;
+      if (this.tuning.linkedGait) {
+        this.armPhase = this.legPhase;
+      } else {
+        const armCadence = speedRatio * BASE_WALK_CADENCE * this.tuning.armSpeed;
+        this.armPhase += dt * armCadence;
+      }
+
+      const w = this.walkWeight;
+      const legAmp = BASE_LEG_SWING * this.tuning.legSwingIntensity * w;
+      const armAmp = BASE_ARM_SWING * this.tuning.armSwingIntensity * w;
+
+      // Stable torso: subtle rhythmic step bob (4mm) only, no bouncing or wobble
+      const stepBob = Math.abs(Math.sin(this.legPhase)) * 0.005 * w;
       parts.torsoGroup.position.set(0, 0.22 + stepBob, 0);
       parts.torsoGroup.rotation.set(0, 0, 0);
 
-      // Slow, graceful leg swing (~15° = 0.26 rad)
-      const legAngle = Math.sin(phi) * 0.26 * w;
+      // Contralateral limb motion calculated from neutral (0, 0, 0)
+      const legAngle = Math.sin(this.legPhase) * legAmp;
+      const armAngle = -Math.sin(this.armPhase) * armAmp;
+
       parts.leftLeg.rotation.set(legAngle, 0, 0);
       parts.rightLeg.rotation.set(-legAngle, 0, 0);
-
-      // Natural contralateral arm counter-swing (~12° = 0.20 rad)
-      const armAngle = -legAngle * 0.8;
       parts.leftArm.rotation.set(armAngle, 0, 0);
       parts.rightArm.rotation.set(-armAngle, 0, 0);
       parts.headGroup.rotation.set(0, 0, 0);
 
       // Companion Dog slow-motion quadruped trot
-      this.dogWalkPhase += dt * CharacterController.walkAnimSpeed * 1.1;
-      const dogPhi = this.dogWalkPhase;
-      const dogLegAngle = Math.sin(dogPhi) * 0.22 * w;
-      this.dogLegs[0].rotation.set(dogLegAngle, 0, 0);   // Front Left
-      this.dogLegs[1].rotation.set(-dogLegAngle, 0, 0);  // Front Right
-      this.dogLegs[2].rotation.set(-dogLegAngle, 0, 0);  // Hind Left
-      this.dogLegs[3].rotation.set(dogLegAngle, 0, 0);   // Hind Right
+      const dogTargetWeight = (distToDog > 0.12 && dogSpeed > 0.05) ? 1.0 : 0.0;
+      this.dogWalkWeight = damp(this.dogWalkWeight, dogTargetWeight, blendRate, dt);
+      if (this.dogWalkWeight > 0.01) {
+        const dogCadence = (dogSpeed / NORMAL_WALK_SPEED) * BASE_DOG_CADENCE * this.tuning.dogSpeed;
+        this.dogPhase += dt * dogCadence;
+        const dogAmp = BASE_DOG_SWING * this.tuning.dogSwingIntensity * this.dogWalkWeight;
+        const dogAngle = Math.sin(this.dogPhase) * dogAmp;
 
-      this.dogMesh.position.y = this.dogPos.y + Math.abs(Math.sin(dogPhi)) * 0.006 * w;
-      this.dogTail.rotation.z = Math.sin(dogPhi * 1.2) * 0.25 * w;
+        this.dogLegs[0].rotation.set(dogAngle, 0, 0);   // Front Left
+        this.dogLegs[1].rotation.set(-dogAngle, 0, 0);  // Front Right
+        this.dogLegs[2].rotation.set(-dogAngle, 0, 0);  // Hind Left
+        this.dogLegs[3].rotation.set(dogAngle, 0, 0);   // Hind Right
+
+        this.dogMesh.position.y = this.dogPos.y + Math.abs(Math.sin(this.dogPhase)) * 0.005 * this.dogWalkWeight;
+        this.dogTail.rotation.z = Math.sin(this.dogPhase * 1.2) * 0.25 * this.dogWalkWeight;
+      } else {
+        for (let i = 0; i < 4; i++) {
+          this.dogLegs[i].rotation.set(0, 0, 0);
+        }
+        this.dogTail.rotation.z = 0;
+      }
     } else {
       // -----------------------------------------------------------------------
       // Completely Settled Stable Idle State (Zero Jiggle, Zero Drift)

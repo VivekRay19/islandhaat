@@ -159,6 +159,28 @@ export class WorldUI {
     this.cultureBadge.onclick = () => this.showAssetDiagnosticModal();
     topLeft.appendChild(this.cultureBadge);
 
+    // Supabase Online Status Badge
+    const onlineIndicator = document.createElement('div');
+    onlineIndicator.style.cssText = `
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 20px;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      cursor: pointer;
+    `;
+    onlineIndicator.innerHTML = `<span style="font-size:12px;">🌐</span> <span>Supabase Live</span>`;
+    onlineIndicator.title = `Connected to Supabase Realtime • Room: ${this.state.multiplayer.roomId}`;
+    onlineIndicator.onclick = () => {
+      this.showFloatingReward(`🌐 Supabase Realtime Active (Room: ${this.state.multiplayer.roomId})`, window.innerWidth / 2, 120);
+    };
+    topLeft.appendChild(onlineIndicator);
+
     // Global Key Shortcuts (F2 / F3)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'F2') {

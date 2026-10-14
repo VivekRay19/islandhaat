@@ -3,6 +3,8 @@ import { PlacedTile } from '../hex/TerrainField';
 import { CompletedFarm } from '../farming/FarmDetectionSystem';
 import { AllianceRecord } from '../alliance/AllianceSystem';
 import { WorldDestinationId } from '../travel/WorldMapSystem';
+import { supabase } from '../supabase/supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface RemotePlayerState {
   playerId: string;
@@ -45,7 +47,12 @@ export class MultiplayerRoom {
   public localHomeIsland: IndianState;
   public currentLocation: WorldDestinationId;
 
+  // Transports
+  private supabaseChannel: RealtimeChannel | null = null;
+  public isSupabaseConnected: boolean = false;
   private channel: BroadcastChannel | null = null;
+  private seenMessages: Set<string> = new Set();
+
   private remotePlayers: Map<string, RemotePlayerState> = new Map();
   private islandOwners: Map<IndianState, { playerId: string; playerName: string }> = new Map();
   private islandTiles: Map<IndianState, PlacedTile[]> = new Map();
@@ -60,6 +67,7 @@ export class MultiplayerRoom {
   public onAllianceDeclinedReceived?: (allianceId: string) => void;
   public onAllianceExpiredReceived?: (allianceId: string) => void;
   public onIslandOwnershipChanged?: (owners: Map<IndianState, { playerId: string; playerName: string }>) => void;
+  public onConnectionStateChange?: (connected: boolean) => void;
 
   private heartbeatTimer: any = null;
   private pruneTimer: any = null;
@@ -108,6 +116,35 @@ export class MultiplayerRoom {
   }
 
   private initTransport(): void {
+    // 1. Supabase Realtime Channel (Internet-wide cross-device multiplayer)
+    try {
+      this.supabaseChannel = supabase.channel(`islandhaat_room_${this.roomId}`, {
+        config: {
+          broadcast: { self: false }
+        }
+      });
+
+      this.supabaseChannel
+        .on('broadcast', { event: 'island_msg' }, ({ payload }) => {
+          if (payload && payload.senderId !== this.localPlayerId) {
+            this.handleIncomingMessage(payload);
+          }
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this.isSupabaseConnected = true;
+            this.onConnectionStateChange?.(true);
+            this.sendHeartbeat('PLAYER_JOIN');
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            this.isSupabaseConnected = false;
+            this.onConnectionStateChange?.(false);
+          }
+        });
+    } catch (e) {
+      console.warn('Supabase Realtime channel setup failed, using local fallback:', e);
+    }
+
+    // 2. BroadcastChannel (Same-device zero-latency cross-tab channel)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         this.channel = new BroadcastChannel(`islandhaat_room_${this.roomId}`);
@@ -117,7 +154,7 @@ export class MultiplayerRoom {
       }
     }
 
-    // Storage event fallback for cross-window sync
+    // 3. Storage event fallback for cross-window sync
     window.addEventListener('storage', (e) => {
       if (e.key === `islandhaat_msg_${this.roomId}` && e.newValue) {
         try {
@@ -135,7 +172,7 @@ export class MultiplayerRoom {
         homeIsland: this.localHomeIsland,
         playerName: this.localPlayerName
       });
-    }, 200);
+    }, 400);
   }
 
   public broadcastMessage(type: NetworkMessageType, payload: any): void {
@@ -146,11 +183,21 @@ export class MultiplayerRoom {
       payload
     };
 
+    // 1. Broadcast via Supabase Realtime across the internet
+    if (this.supabaseChannel && this.isSupabaseConnected) {
+      this.supabaseChannel.send({
+        type: 'broadcast',
+        event: 'island_msg',
+        payload: msg
+      }).catch(() => {});
+    }
+
+    // 2. Broadcast via BroadcastChannel for local browser tabs
     if (this.channel) {
       this.channel.postMessage(msg);
     }
 
-    // Mirror to localStorage for robust cross-window delivery
+    // 3. Mirror to localStorage
     try {
       localStorage.setItem(`islandhaat_msg_${this.roomId}`, JSON.stringify(msg));
     } catch (_) {}
@@ -158,6 +205,15 @@ export class MultiplayerRoom {
 
   private handleIncomingMessage(msg: NetworkMessage): void {
     if (!msg || msg.senderId === this.localPlayerId) return;
+
+    // Deduplicate identical messages arriving via multiple transports
+    const msgKey = `${msg.senderId}_${msg.timestamp}_${msg.type}`;
+    if (this.seenMessages.has(msgKey)) return;
+    this.seenMessages.add(msgKey);
+    if (this.seenMessages.size > 500) {
+      const oldest = this.seenMessages.values().next().value;
+      if (oldest) this.seenMessages.delete(oldest);
+    }
 
     switch (msg.type) {
       case 'PLAYER_JOIN':
@@ -284,19 +340,18 @@ export class MultiplayerRoom {
   }
 
   private startHeartbeat(): void {
-    // Send join announcement
     this.sendHeartbeat('PLAYER_JOIN');
 
     this.heartbeatTimer = setInterval(() => {
       this.sendHeartbeat('PLAYER_HEARTBEAT');
     }, 1500);
 
-    // Prune stale players older than 6 seconds
+    // Prune stale players older than 7 seconds
     this.pruneTimer = setInterval(() => {
       const now = Date.now();
       let changed = false;
       for (const [id, p] of this.remotePlayers.entries()) {
-        if (now - p.lastSeen > 6000) {
+        if (now - p.lastSeen > 7000) {
           this.remotePlayers.delete(id);
           changed = true;
         }
@@ -304,7 +359,7 @@ export class MultiplayerRoom {
       if (changed) {
         this.onRemotePlayerUpdate?.(Array.from(this.remotePlayers.values()));
       }
-    }, 2000);
+    }, 2500);
   }
 
   private sendHeartbeat(type: NetworkMessageType = 'PLAYER_HEARTBEAT'): void {
@@ -379,6 +434,10 @@ export class MultiplayerRoom {
     this.broadcastMessage('PLAYER_LEAVE', { playerId: this.localPlayerId });
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     if (this.pruneTimer) clearInterval(this.pruneTimer);
+    if (this.supabaseChannel) {
+      supabase.removeChannel(this.supabaseChannel);
+      this.supabaseChannel = null;
+    }
     this.channel?.close();
   }
 }

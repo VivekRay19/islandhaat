@@ -81,21 +81,24 @@ export class NetworkedPlayer {
     this.group.position.lerp(this.targetPos, Math.min(1, dt * 10));
     this.group.rotation.y = dampAngle(this.group.rotation.y, this.targetRotationY, 12, dt);
 
-    // Simple natural walk cycle for remote player
+    // Iron-Golem-inspired heavy gait for remote players
     if (this.isMoving) {
-      this.walkPhase += dt * 3.5;
-      const legAngle = Math.sin(this.walkPhase) * 0.22;
-      this.specialist.leftLeg.rotation.x = legAngle;
-      this.specialist.rightLeg.rotation.x = -legAngle;
-      this.specialist.leftArm.rotation.x = -legAngle * 0.8;
-      this.specialist.rightArm.rotation.x = legAngle * 0.8;
-      this.specialist.torsoGroup.position.y = 0.22 + Math.abs(Math.sin(this.walkPhase)) * 0.008;
+      this.walkPhase += dt * 3.2;
+      const legAngle = Math.sin(this.walkPhase) * 0.38;
+      const armAngle = -Math.sin(this.walkPhase) * 0.24;
+      this.specialist.leftLeg.rotation.set(legAngle, 0, 0);
+      this.specialist.rightLeg.rotation.set(-legAngle, 0, 0);
+      this.specialist.leftArm.rotation.set(armAngle, 0, 0);
+      this.specialist.rightArm.rotation.set(-armAngle, 0, 0);
+      this.specialist.torsoGroup.position.set(0, 0.22 - Math.abs(Math.sin(this.walkPhase)) * 0.004, 0);
+      this.specialist.torsoGroup.rotation.set(0, 0, 0);
     } else {
-      this.specialist.leftLeg.rotation.x = damp(this.specialist.leftLeg.rotation.x, 0, 14, dt);
-      this.specialist.rightLeg.rotation.x = damp(this.specialist.rightLeg.rotation.x, 0, 14, dt);
-      this.specialist.leftArm.rotation.x = damp(this.specialist.leftArm.rotation.x, 0, 14, dt);
-      this.specialist.rightArm.rotation.x = damp(this.specialist.rightArm.rotation.x, 0, 14, dt);
-      this.specialist.torsoGroup.position.y = damp(this.specialist.torsoGroup.position.y, 0.22, 14, dt);
+      this.specialist.leftLeg.rotation.x = damp(this.specialist.leftLeg.rotation.x, 0, 16, dt);
+      this.specialist.rightLeg.rotation.x = damp(this.specialist.rightLeg.rotation.x, 0, 16, dt);
+      this.specialist.leftArm.rotation.x = damp(this.specialist.leftArm.rotation.x, 0, 16, dt);
+      this.specialist.rightArm.rotation.x = damp(this.specialist.rightArm.rotation.x, 0, 16, dt);
+      this.specialist.torsoGroup.position.y = damp(this.specialist.torsoGroup.position.y, 0.22, 16, dt);
+      this.specialist.torsoGroup.rotation.set(0, 0, 0);
     }
   }
 

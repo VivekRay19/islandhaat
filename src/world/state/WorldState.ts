@@ -20,13 +20,25 @@ export interface WorldEvent {
   resolved: boolean;
 }
 
+export interface IslandPersistentData {
+  destinationId: WorldDestinationId;
+  tiles: PlacedTile[];
+  registeredFarms: CompletedFarm[];
+  lastVisited: number;
+}
+
 export class WorldState {
   public selectedCulture: IndianState = 'bihar';
   public cultureScore: number = 0;
   public activeQuest: CulturalQuest;
 
+  // Active scene terrain & current destination
   public terrain: TerrainField = new TerrainField();
   public currentRotation: number = 0; // 0..5
+  public currentLocation: WorldDestinationId = 'bihar';
+
+  // Per-Island Authoritative Persistent State Registry
+  public islands: Map<WorldDestinationId, IslandPersistentData> = new Map();
 
   // Core Gameplay & Multiplayer Systems
   public tileInventory: TileInventorySystem;
@@ -34,7 +46,6 @@ export class WorldState {
   public alliances: AllianceSystem;
   public multiplayer: MultiplayerRoom;
   public registeredFarms: Map<string, CompletedFarm> = new Map();
-  public currentLocation: WorldDestinationId = 'bihar';
 
   // Backwards compatibility properties
   public coins: number = 420;
@@ -81,7 +92,8 @@ export class WorldState {
     // Initialize state starting quest
     this.activeQuest = JSON.parse(JSON.stringify(profile.quests[0]));
 
-    this.initDefaultWorld();
+    // Initialize starting home island
+    this.loadIsland(culture);
     this.setupMultiplayerListeners();
   }
 
@@ -91,11 +103,34 @@ export class WorldState {
       if (island === this.currentLocation) {
         this.terrain.setTile(tile);
       }
+      let rec = this.islands.get(island);
+      if (!rec) {
+        rec = {
+          destinationId: island,
+          tiles: [],
+          registeredFarms: [],
+          lastVisited: Date.now()
+        };
+        this.islands.set(island, rec);
+      }
+      if (!rec.tiles.some((t) => t.key === tile.key)) {
+        rec.tiles.push(tile);
+      }
+      this.saveToStorage();
     };
 
     // When remote farm completes
-    this.multiplayer.onRemoteFarmCompleted = (_island, farm) => {
-      this.registeredFarms.set(farm.id, farm);
+    this.multiplayer.onRemoteFarmCompleted = (island, farm) => {
+      if (island === this.currentLocation) {
+        this.registeredFarms.set(farm.id, farm);
+      }
+      let rec = this.islands.get(island);
+      if (rec) {
+        if (!rec.registeredFarms.some((f) => f.id === farm.id)) {
+          rec.registeredFarms.push(farm);
+        }
+      }
+      this.saveToStorage();
     };
 
     // When alliance request is received by host
@@ -133,9 +168,82 @@ export class WorldState {
     };
   }
 
-  public initDefaultWorld(culture: IndianState = this.selectedCulture): void {
-    this.terrain.clear();
+  // =========================================================================
+  // PER-ISLAND SAVE & RESTORE LIFECYCLE
+  // =========================================================================
 
+  /**
+   * Captures the authoritative snapshot of the current active island terrain & farms.
+   */
+  public saveIslandSnapshot(destId: WorldDestinationId = this.currentLocation): void {
+    const currentTiles = this.terrain.getAllTiles();
+    if (currentTiles.length === 0) return;
+
+    const currentFarms = Array.from(this.registeredFarms.values());
+    this.islands.set(destId, {
+      destinationId: destId,
+      tiles: [...currentTiles],
+      registeredFarms: [...currentFarms],
+      lastVisited: Date.now()
+    });
+  }
+
+  /**
+   * Loads an island's state. If saved state exists, restores all tiles and farms.
+   * If not, generates the default starter base layout for that destination.
+   */
+  public loadIsland(destId: WorldDestinationId): void {
+    this.terrain.clear();
+    this.registeredFarms.clear();
+
+    const saved = this.islands.get(destId);
+    if (saved && saved.tiles && saved.tiles.length > 0) {
+      for (const t of saved.tiles) {
+        this.terrain.setTile(t);
+      }
+      if (Array.isArray(saved.registeredFarms)) {
+        for (const f of saved.registeredFarms) {
+          this.registeredFarms.set(f.id, f);
+        }
+      }
+    } else {
+      // First visit: generate starter layout and save initial snapshot
+      if (destId === 'central_haat') {
+        this.generateCentralHaatBase();
+      } else {
+        this.generateCultureBase(destId as IndianState);
+      }
+      this.saveIslandSnapshot(destId);
+    }
+  }
+
+  /**
+   * Switches destination authoritatively: saves the departing island state,
+   * switches location, and restores the destination's persistent state.
+   */
+  public switchDestination(destId: WorldDestinationId): void {
+    if (this.currentLocation === destId) return;
+
+    // 1. Snapshot the island we are leaving
+    this.saveIslandSnapshot(this.currentLocation);
+    this.saveToStorage();
+
+    // 2. Change current location
+    this.currentLocation = destId;
+    this.multiplayer.updateCurrentLocation(destId);
+
+    // 3. Load destination island's authoritative state
+    this.loadIsland(destId);
+
+    // 4. Save updated registry
+    this.saveToStorage();
+  }
+
+  public initDefaultWorld(culture: IndianState = this.selectedCulture): void {
+    this.loadIsland(culture);
+  }
+
+  public generateCultureBase(culture: IndianState): void {
     switch (culture) {
       case 'bihar':
         this.placeDirect(0, 0, 'start', 0);
@@ -205,9 +313,7 @@ export class WorldState {
     }
   }
 
-  public initCentralHaatWorld(): void {
-    this.terrain.clear();
-    // Central Haat: Grand Crossroads Marketplace
+  public generateCentralHaatBase(): void {
     this.placeDirect(0, 0, 'haat', 0);
     this.placeDirect(1, 0, 'haat', 0);
     this.placeDirect(0, 1, 'start', 0); // Arrival pier
@@ -218,17 +324,6 @@ export class WorldState {
     this.placeDirect(2, -1, 'coastal', 0);
     this.placeDirect(-2, 1, 'coastal', 0);
     this.placeDirect(0, 2, 'coastal', 0);
-  }
-
-  public switchDestination(destId: WorldDestinationId): void {
-    this.currentLocation = destId;
-    this.multiplayer.updateCurrentLocation(destId);
-
-    if (destId === 'central_haat') {
-      this.initCentralHaatWorld();
-    } else {
-      this.initDefaultWorld(destId as IndianState);
-    }
   }
 
   private placeDirect(q: number, r: number, defId: string, rotation = 0): void {
@@ -480,6 +575,8 @@ export class WorldState {
     if (this.totalTilesPlaced >= 4 && this.level === 1) this.level = 2;
     if (this.totalTilesPlaced >= 10 && this.level === 2) this.level = 3;
 
+    // Persist current island modifications immediately
+    this.saveIslandSnapshot(this.currentLocation);
     this.saveToStorage();
 
     return {
@@ -560,6 +657,7 @@ export class WorldState {
     this.coins = this.cropInventory.getCoins();
     this.cultureScore += 25;
     this.activeEvent = null;
+    this.saveIslandSnapshot(this.currentLocation);
     this.saveToStorage();
     return true;
   }
@@ -569,6 +667,8 @@ export class WorldState {
   // =========================================================================
 
   public saveToStorage(): void {
+    this.saveIslandSnapshot(this.currentLocation);
+
     const saveObj = {
       selectedCulture: this.selectedCulture,
       currentLocation: this.currentLocation,
@@ -579,9 +679,12 @@ export class WorldState {
       inventory: this.inventory,
       activeSynergies: this.activeSynergies,
       activeQuest: this.activeQuest,
-      tiles: this.terrain.getAllTiles(),
       tileInventory: this.tileInventory.serialize(),
       cropInventory: this.cropInventory.serialize(),
+      // Per-Island Authoritative Registry
+      islands: Array.from(this.islands.entries()),
+      // Legacy backward-compatibility fields
+      tiles: this.terrain.getAllTiles(),
       registeredFarms: Array.from(this.registeredFarms.entries())
     };
     try {
@@ -615,16 +718,31 @@ export class WorldState {
         state.coins = state.cropInventory.getCoins();
       }
 
-      if (Array.isArray(data.registeredFarms)) {
-        state.registeredFarms = new Map(data.registeredFarms);
+      // Restore island-scoped records
+      if (Array.isArray(data.islands) && data.islands.length > 0) {
+        state.islands = new Map(data.islands);
       }
 
-      if (Array.isArray(data.tiles)) {
-        state.terrain.clear();
-        for (const t of data.tiles) {
-          state.terrain.setTile(t);
-        }
+      // Restore active island terrain
+      const locToLoad = state.currentLocation || state.selectedCulture;
+      if (state.islands.has(locToLoad)) {
+        state.loadIsland(locToLoad);
+      } else if (Array.isArray(data.tiles) && data.tiles.length > 0) {
+        // Legacy migration
+        const legacyFarms = Array.isArray(data.registeredFarms)
+          ? data.registeredFarms.map((item: any) => (Array.isArray(item) ? item[1] : item))
+          : [];
+        state.islands.set(state.selectedCulture, {
+          destinationId: state.selectedCulture,
+          tiles: data.tiles,
+          registeredFarms: legacyFarms,
+          lastVisited: Date.now()
+        });
+        state.loadIsland(locToLoad);
+      } else {
+        state.loadIsland(state.selectedCulture);
       }
+
       return state;
     } catch (e) {
       console.warn('Failed to load from localStorage:', e);

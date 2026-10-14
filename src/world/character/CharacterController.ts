@@ -6,83 +6,23 @@ import { IndianState } from '../culture/CultureTypes';
 import { CulturalSpecialistBuilder, SpecialistParts } from '../graphics/CulturalSpecialistBuilder';
 
 export interface AnimationTuningSettings {
-  legSpeed: number;           // 0.15x - 1.25x
-  armSpeed: number;           // 0.15x - 1.25x
-  legSwingIntensity: number;  // 0.15x - 1.00x
-  armSwingIntensity: number;  // 0.15x - 1.00x
-  blendSpeed: number;         // 0.25x - 2.00x
-  dogSpeed: number;           // 0.15x - 1.25x
-  dogSwingIntensity: number;  // 0.15x - 1.00x
-  linkedGait: boolean;        // default: true
-  diagnosticSlowWalk: boolean;// default: false
+  legSpeed: number;
+  armSpeed: number;
+  legSwingIntensity: number;
+  armSwingIntensity: number;
+  blendSpeed: number;
+  dogSpeed: number;
+  dogSwingIntensity: number;
 }
 
-export const ANIMATION_PRESETS: Record<string, AnimationTuningSettings> = {
-  ULTRA_SLOW: {
-    legSpeed: 0.15,
-    armSpeed: 0.15,
-    legSwingIntensity: 0.30,
-    armSwingIntensity: 0.30,
-    blendSpeed: 1.0,
-    dogSpeed: 0.20,
-    dogSwingIntensity: 0.35,
-    linkedGait: true,
-    diagnosticSlowWalk: false
-  },
-  VERY_SLOW: {
-    legSpeed: 0.30,
-    armSpeed: 0.30,
-    legSwingIntensity: 0.45,
-    armSwingIntensity: 0.45,
-    blendSpeed: 1.0,
-    dogSpeed: 0.30,
-    dogSwingIntensity: 0.45,
-    linkedGait: true,
-    diagnosticSlowWalk: false
-  },
-  SLOW: {
-    legSpeed: 0.50,
-    armSpeed: 0.50,
-    legSwingIntensity: 0.60,
-    armSwingIntensity: 0.60,
-    blendSpeed: 1.0,
-    dogSpeed: 0.50,
-    dogSwingIntensity: 0.60,
-    linkedGait: true,
-    diagnosticSlowWalk: false
-  },
-  MODERATE: {
-    legSpeed: 0.75,
-    armSpeed: 0.75,
-    legSwingIntensity: 0.80,
-    armSwingIntensity: 0.80,
-    blendSpeed: 1.0,
-    dogSpeed: 0.75,
-    dogSwingIntensity: 0.80,
-    linkedGait: true,
-    diagnosticSlowWalk: false
-  },
-  ORIGINAL: {
-    legSpeed: 1.00,
-    armSpeed: 1.00,
-    legSwingIntensity: 1.00,
-    armSwingIntensity: 1.00,
-    blendSpeed: 1.0,
-    dogSpeed: 1.00,
-    dogSwingIntensity: 1.00,
-    linkedGait: true,
-    diagnosticSlowWalk: false
-  }
-};
-
-export const BASE_WALK_CADENCE = 6.0;   // rad/s at full walk speed
-export const BASE_LEG_SWING = 0.65;     // max leg rotation in radians (~37°)
-export const BASE_ARM_SWING = 0.55;     // max arm rotation in radians (~31°)
-export const BASE_DOG_CADENCE = 6.5;    // dog step cadence in rad/s
-export const BASE_DOG_SWING = 0.45;     // dog leg rotation in radians (~26°)
-export const BASE_BLEND_SPEED = 14.0;   // blend transition damp rate
-export const NORMAL_WALK_SPEED = 3.6;   // normal character horizontal speed
-export const DIAGNOSTIC_WALK_SPEED = 1.44; // 0.4x walk speed for diagnostic inspection
+// Heavy, deliberate, grounded Iron-Golem-inspired locomotion constants
+export const IRON_GOLEM_WALK_CADENCE = 3.2;  // rad/s: steady, rhythmic, measured step cycle (~0.65s per step)
+export const IRON_GOLEM_LEG_SWING = 0.38;    // ~21.8° max leg swing: substantial grounded stride without exaggerated flail
+export const IRON_GOLEM_ARM_SWING = 0.24;    // ~13.8° max arm swing: heavy, controlled downward pendulum counter-balance
+export const BASE_DOG_CADENCE = 5.2;         // rad/s: quadruped follow trot cadence
+export const BASE_DOG_SWING = 0.35;          // ~20°: dog leg rotation
+export const BASE_BLEND_SPEED = 18.0;        // fast, clean blend transition rate to prevent foot sliding
+export const NORMAL_WALK_SPEED = 3.6;        // character horizontal explore speed
 
 export class CharacterController {
   public mesh: THREE.Group;
@@ -104,10 +44,9 @@ export class CharacterController {
   public isGrounded: boolean = true;
   public isMoving: boolean = false;
 
-  private speed: number = 3.6;
+  private speed: number = NORMAL_WALK_SPEED;
   private gravity: number = 14.0;
   private jumpForce: number = 5.2;
-  private animTimer: number = 0;
 
   // Dog follow position
   private dogPos: THREE.Vector3 = new THREE.Vector3(-0.4, 0.34, 0.3);
@@ -117,86 +56,73 @@ export class CharacterController {
   public inputVector: THREE.Vector2 = new THREE.Vector2(0, 0);
   public jumpRequested: boolean = false;
 
+  // Animation weights and phases
+  private walkWeight: number = 0.0;
+  private legPhase: number = 0.0;
+  private dogWalkWeight: number = 0.0;
+  private dogPhase: number = 0.0;
+
   constructor(scene: THREE.Scene, culture: IndianState = 'bihar') {
     this.culture = culture;
 
-    // =========================================================================
-    // 1. ARTICULATED STYLIZED SPECIALIST CHARACTER
-    // =========================================================================
+    // 1. Cultural Specialist Rig
     this.mesh = new THREE.Group();
-
-    // Dedicated Culture Specialist Model with Articulated Limbs
     this.specialist = CulturalSpecialistBuilder.createSpecialist(culture);
     this.mesh.add(this.specialist.root);
-    this.mesh.visible = false; // Hidden in Build Mode initially
+    this.mesh.visible = false;
     scene.add(this.mesh);
 
-    // =========================================================================
-    // 2. COMPANION PUPPY / DOG (Stylized Rounded Geometry)
-    // =========================================================================
+    // 2. Companion Dog
     this.dogMesh = new THREE.Group();
     const dogWhite = new THREE.MeshStandardMaterial({ color: 0xfbfbfb, roughness: 0.65 });
     const dogBrown = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.7 });
     const dogNose = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3 });
-    const dogCollar = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 }); // Red puppy collar
 
-    // Rounded Body (Smooth Capsule/Cylinder geometry)
-    this.dogBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12), dogWhite);
-    this.dogBody.rotation.x = Math.PI / 2;
-    this.dogBody.position.y = 0.13;
+    // Torso / body
+    const bodyGeo = new THREE.BoxGeometry(0.18, 0.16, 0.28);
+    this.dogBody = new THREE.Mesh(bodyGeo, dogBrown);
+    this.dogBody.position.set(0, 0.12, 0);
     this.dogBody.castShadow = true;
     this.dogMesh.add(this.dogBody);
 
-    // Warm Brown Patch on Body
-    const patch = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), dogBrown);
-    patch.scale.set(0.9, 0.6, 1.1);
-    patch.position.set(0.03, 0.04, 0.01);
-    this.dogBody.add(patch);
-
-    // Cute Collar
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.015, 6, 16), dogCollar);
-    collar.position.set(0, 0.08, 0);
-    this.dogBody.add(collar);
-
-    // Rounded Head
-    this.dogHead = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 12), dogWhite);
-    this.dogHead.position.set(0, 0.21, 0.12);
+    // Head
+    const headGeo = new THREE.BoxGeometry(0.14, 0.13, 0.14);
+    this.dogHead = new THREE.Mesh(headGeo, dogWhite);
+    this.dogHead.position.set(0, 0.21, 0.14);
     this.dogHead.castShadow = true;
     this.dogMesh.add(this.dogHead);
 
-    // Floppy Drooping Ears
-    const leftEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
-    leftEar.position.set(-0.07, 0.03, -0.01);
-    leftEar.rotation.z = 0.35;
-    leftEar.rotation.x = 0.2;
-    this.dogHead.add(leftEar);
+    // Snout / Nose
+    const noseGeo = new THREE.BoxGeometry(0.06, 0.05, 0.06);
+    const noseMesh = new THREE.Mesh(noseGeo, dogNose);
+    noseMesh.position.set(0, 0.19, 0.22);
+    this.dogMesh.add(noseMesh);
 
-    const rightEar = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.05, 4, 8), dogBrown);
-    rightEar.position.set(0.07, 0.03, -0.01);
-    rightEar.rotation.z = -0.35;
-    rightEar.rotation.x = 0.2;
-    this.dogHead.add(rightEar);
+    // Floppy ears
+    const earGeo = new THREE.BoxGeometry(0.04, 0.08, 0.03);
+    const leftEar = new THREE.Mesh(earGeo, dogBrown);
+    leftEar.position.set(-0.08, 0.21, 0.12);
+    this.dogMesh.add(leftEar);
+
+    const rightEar = new THREE.Mesh(earGeo, dogBrown);
+    rightEar.position.set(0.08, 0.21, 0.12);
+    this.dogMesh.add(rightEar);
     this.dogEars = leftEar;
 
-    // Rounded Snout & Shiny Button Nose
-    const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.06, 8), dogWhite);
-    snout.rotation.x = Math.PI / 2;
-    snout.position.set(0, -0.02, 0.08);
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), dogNose);
-    nose.position.set(0, 0.03, 0.02);
-    snout.add(nose);
-    this.dogHead.add(snout);
+    // Tail
+    const tailPivot = new THREE.Group();
+    tailPivot.position.set(0, 0.17, -0.14);
+    const tailMesh = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.1), dogBrown);
+    tailMesh.position.set(0, 0.04, -0.04);
+    tailMesh.rotation.x = Math.PI / 4;
+    tailPivot.add(tailMesh);
+    this.dogMesh.add(tailPivot);
+    this.dogTail = tailMesh;
 
-    // Playful Tail
-    this.dogTail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.13, 8), dogBrown);
-    this.dogTail.position.set(0, 0.18, -0.12);
-    this.dogTail.rotation.x = -Math.PI / 3.5;
-    this.dogMesh.add(this.dogTail);
-
-    // 4 Articulated Little Rounded Paws / Legs with hip pivot groups
+    // Four Articulated Legs
     const legOffsets = [
-      { x: -0.055, z: 0.065 }, // 0: Front Left
-      { x: 0.055, z: 0.065 },  // 1: Front Right
+      { x: -0.055, z: 0.085 },  // 0: Front Left
+      { x: 0.055, z: 0.085 },   // 1: Front Right
       { x: -0.055, z: -0.065 }, // 2: Hind Left
       { x: 0.055, z: -0.065 }  // 3: Hind Right
     ];
@@ -212,45 +138,9 @@ export class CharacterController {
     });
 
     this.dogMesh.scale.set(0.9, 0.9, 0.9);
-    this.dogMesh.visible = false; // Hidden in Build Mode initially
+    this.dogMesh.visible = false;
     scene.add(this.dogMesh);
-
-    this.loadTuningSettings();
   }
-
-  // Animation Tuning Settings & Presets
-  public tuning: AnimationTuningSettings = { ...ANIMATION_PRESETS.ULTRA_SLOW };
-
-  public applyPreset(presetKey: keyof typeof ANIMATION_PRESETS): void {
-    if (ANIMATION_PRESETS[presetKey]) {
-      this.tuning = { ...ANIMATION_PRESETS[presetKey] };
-      this.saveTuningSettings();
-      console.log(`[Island Haat] Applied animation preset: ${presetKey}`);
-    }
-  }
-
-  public saveTuningSettings(): void {
-    try {
-      localStorage.setItem('islandhaat_anim_tuning', JSON.stringify(this.tuning));
-    } catch (_) {}
-  }
-
-  public loadTuningSettings(): void {
-    try {
-      const saved = localStorage.getItem('islandhaat_anim_tuning');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        this.tuning = { ...ANIMATION_PRESETS.ULTRA_SLOW, ...parsed };
-      }
-    } catch (_) {}
-  }
-
-  // Animation state weights and phases (independent leg, arm, dog phases)
-  private walkWeight: number = 0.0;
-  private legPhase: number = 0.0;
-  private armPhase: number = 0.0;
-  private dogWalkWeight: number = 0.0;
-  private dogPhase: number = 0.0;
 
   public setPosition(x: number, z: number, terrain: TerrainField): void {
     this.position.x = x;
@@ -259,7 +149,6 @@ export class CharacterController {
     this.velocity.set(0, 0, 0);
     this.walkWeight = 0;
     this.legPhase = 0;
-    this.armPhase = 0;
     this.dogWalkWeight = 0;
     this.dogPhase = 0;
     this.mesh.position.copy(this.position);
@@ -284,24 +173,22 @@ export class CharacterController {
       this.rotationY = dampAngle(this.rotationY, targetAngle, 16, dt);
     }
 
-    // 2. Velocity with Fast Deceleration when input stops
+    // 2. Velocity Calculation with Decisive Stopping
     const targetVelX = moveDir.x * this.speed;
     const targetVelZ = moveDir.z * this.speed;
-    const accelRate = hasInput ? 14 : 20; // snappy, clean deceleration
+    const accelRate = hasInput ? 14 : 22; // Snappy deceleration prevents lingering foot slide
     this.velocity.x = damp(this.velocity.x, targetVelX, accelRate, dt);
     this.velocity.z = damp(this.velocity.z, targetVelZ, accelRate, dt);
 
-    // Compute true horizontal ground speed
     const groundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    // Strict threshold: below 0.05 m/s, cleanly stop residual crawl
-    if (!hasInput && groundSpeed < 0.05) {
+    if (!hasInput && groundSpeed < 0.06) {
       this.velocity.x = 0;
       this.velocity.z = 0;
     }
     const currentGroundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
     this.isMoving = currentGroundSpeed > 0.08;
 
-    // 3. Jump (Only while grounded and requested in Explore Mode)
+    // 3. Jump (Only while grounded and requested)
     if (this.isGrounded && this.jumpRequested) {
       this.velocity.y = this.jumpForce;
       this.isGrounded = false;
@@ -337,15 +224,13 @@ export class CharacterController {
     this.mesh.rotation.y = this.rotationY;
 
     // 5. Companion Dog Following Logic
-    // Desired offset in character's local coordinates behind to the left
     const dogTarget = new THREE.Vector3(
       this.position.x - Math.sin(this.rotationY + 0.6) * 0.45,
       this.position.y,
       this.position.z - Math.cos(this.rotationY + 0.6) * 0.45
     );
     const distToDog = Math.hypot(dogTarget.x - this.dogPos.x, dogTarget.z - this.dogPos.z);
-    
-    // Smooth follow without jitter; if close enough, stop dog movement completely
+
     let dogSpeed = 0;
     if (distToDog > 0.12) {
       const prevX = this.dogPos.x;
@@ -364,61 +249,52 @@ export class CharacterController {
     }
 
     // =========================================================================
-    // 6. ANIMATION CONTROLLER (Tunable Cadence, Intensity, and State Blending)
+    // 6. IRON-GOLEM-INSPIRED HEAVY LOCOMOTION GAIT
     // =========================================================================
     const parts = this.specialist;
 
-    // Smoothly blend walk weight: 1.0 when moving, 0.0 when stopped
-    const targetWalkWeight = (this.isGrounded && this.isMoving) ? clamp(currentGroundSpeed / this.speed, 0.2, 1.0) : 0.0;
-    const blendRate = BASE_BLEND_SPEED * this.tuning.blendSpeed;
-    this.walkWeight = damp(this.walkWeight, targetWalkWeight, blendRate, dt);
-    if (this.walkWeight < 0.01) {
+    // Smooth walk weight: 1.0 when moving, 0.0 when stopped
+    const targetWalkWeight = this.isGrounded && this.isMoving ? clamp(currentGroundSpeed / this.speed, 0.2, 1.0) : 0.0;
+    this.walkWeight = damp(this.walkWeight, targetWalkWeight, BASE_BLEND_SPEED, dt);
+    if (this.walkWeight < 0.005) {
       this.walkWeight = 0;
     }
 
     if (!this.isGrounded) {
-      // Jump / Fall Airborne Pose
+      // Airborne Jump / Fall Pose: solid, stable posture
       const jumpRatio = clamp(this.velocity.y / this.jumpForce, -1, 1);
       parts.torsoGroup.position.set(0, 0.22, 0);
-      parts.torsoGroup.rotation.set(jumpRatio * -0.12, 0, 0);
-      parts.leftLeg.rotation.set(0.35 + jumpRatio * 0.1, 0, 0);
-      parts.rightLeg.rotation.set(-0.25 - jumpRatio * 0.1, 0, 0);
-      parts.leftArm.rotation.set(-0.5 - jumpRatio * 0.2, 0, 0);
-      parts.rightArm.rotation.set(-0.4 - jumpRatio * 0.2, 0, 0);
-      parts.headGroup.rotation.set(0.08 - jumpRatio * 0.1, 0, 0);
+      parts.torsoGroup.rotation.set(jumpRatio * -0.08, 0, 0);
+      parts.leftLeg.rotation.set(0.25 + jumpRatio * 0.08, 0, 0);
+      parts.rightLeg.rotation.set(-0.2 - jumpRatio * 0.08, 0, 0);
+      parts.leftArm.rotation.set(-0.35 - jumpRatio * 0.15, 0, 0);
+      parts.rightArm.rotation.set(-0.3 - jumpRatio * 0.15, 0, 0);
+      parts.headGroup.rotation.set(0, 0, 0);
 
-      // Dog airborne / alert tail
       this.dogTail.rotation.z = 0;
       for (let i = 0; i < 4; i++) {
         this.dogLegs[i].rotation.x = damp(this.dogLegs[i].rotation.x, 0, 16, dt);
       }
-    } else if (this.walkWeight > 0.01) {
+    } else if (this.walkWeight > 0.005) {
       // -----------------------------------------------------------------------
-      // Tunable Locomotion Gait (Phase advances only while actively moving)
+      // Slow, heavy, deliberate Iron Golem walking motion
       // -----------------------------------------------------------------------
       const speedRatio = Math.max(0.2, currentGroundSpeed / this.speed);
-      const legCadence = speedRatio * BASE_WALK_CADENCE * this.tuning.legSpeed;
-      this.legPhase += dt * legCadence;
-
-      if (this.tuning.linkedGait) {
-        this.armPhase = this.legPhase;
-      } else {
-        const armCadence = speedRatio * BASE_WALK_CADENCE * this.tuning.armSpeed;
-        this.armPhase += dt * armCadence;
-      }
+      const stepCadence = speedRatio * IRON_GOLEM_WALK_CADENCE;
+      this.legPhase += dt * stepCadence;
 
       const w = this.walkWeight;
-      const legAmp = BASE_LEG_SWING * this.tuning.legSwingIntensity * w;
-      const armAmp = BASE_ARM_SWING * this.tuning.armSwingIntensity * w;
+      const legAmp = IRON_GOLEM_LEG_SWING * w;
+      const armAmp = IRON_GOLEM_ARM_SWING * w;
 
-      // Stable torso: subtle rhythmic step bob (4mm) only, no bouncing or wobble
-      const stepBob = Math.abs(Math.sin(this.legPhase)) * 0.005 * w;
-      parts.torsoGroup.position.set(0, 0.22 + stepBob, 0);
-      parts.torsoGroup.rotation.set(0, 0, 0);
+      // Heavy footstep impact compression (torso dips 3.5mm into ground on foot plant)
+      const footfallImpact = Math.abs(Math.sin(this.legPhase)) * 0.004 * w;
+      parts.torsoGroup.position.set(0, 0.22 - footfallImpact, 0);
+      parts.torsoGroup.rotation.set(0, 0, 0); // Torso remains rock-solid upright
 
-      // Contralateral limb motion calculated from neutral (0, 0, 0)
+      // Contralateral mechanical limb swing (Left arm opposes left leg)
       const legAngle = Math.sin(this.legPhase) * legAmp;
-      const armAngle = -Math.sin(this.armPhase) * armAmp;
+      const armAngle = -Math.sin(this.legPhase) * armAmp;
 
       parts.leftLeg.rotation.set(legAngle, 0, 0);
       parts.rightLeg.rotation.set(-legAngle, 0, 0);
@@ -426,22 +302,22 @@ export class CharacterController {
       parts.rightArm.rotation.set(-armAngle, 0, 0);
       parts.headGroup.rotation.set(0, 0, 0);
 
-      // Companion Dog slow-motion quadruped trot
-      const dogTargetWeight = (distToDog > 0.12 && dogSpeed > 0.05) ? 1.0 : 0.0;
-      this.dogWalkWeight = damp(this.dogWalkWeight, dogTargetWeight, blendRate, dt);
+      // Companion Dog Quadruped Trot
+      const dogTargetWeight = distToDog > 0.12 && dogSpeed > 0.05 ? 1.0 : 0.0;
+      this.dogWalkWeight = damp(this.dogWalkWeight, dogTargetWeight, BASE_BLEND_SPEED, dt);
       if (this.dogWalkWeight > 0.01) {
-        const dogCadence = (dogSpeed / NORMAL_WALK_SPEED) * BASE_DOG_CADENCE * this.tuning.dogSpeed;
+        const dogCadence = (dogSpeed / NORMAL_WALK_SPEED) * BASE_DOG_CADENCE;
         this.dogPhase += dt * dogCadence;
-        const dogAmp = BASE_DOG_SWING * this.tuning.dogSwingIntensity * this.dogWalkWeight;
+        const dogAmp = BASE_DOG_SWING * this.dogWalkWeight;
         const dogAngle = Math.sin(this.dogPhase) * dogAmp;
 
-        this.dogLegs[0].rotation.set(dogAngle, 0, 0);   // Front Left
-        this.dogLegs[1].rotation.set(-dogAngle, 0, 0);  // Front Right
-        this.dogLegs[2].rotation.set(-dogAngle, 0, 0);  // Hind Left
-        this.dogLegs[3].rotation.set(dogAngle, 0, 0);   // Hind Right
+        this.dogLegs[0].rotation.set(dogAngle, 0, 0);
+        this.dogLegs[1].rotation.set(-dogAngle, 0, 0);
+        this.dogLegs[2].rotation.set(-dogAngle, 0, 0);
+        this.dogLegs[3].rotation.set(dogAngle, 0, 0);
 
-        this.dogMesh.position.y = this.dogPos.y + Math.abs(Math.sin(this.dogPhase)) * 0.005 * this.dogWalkWeight;
-        this.dogTail.rotation.z = Math.sin(this.dogPhase * 1.2) * 0.25 * this.dogWalkWeight;
+        this.dogMesh.position.y = this.dogPos.y + Math.abs(Math.sin(this.dogPhase)) * 0.004 * this.dogWalkWeight;
+        this.dogTail.rotation.z = Math.sin(this.dogPhase * 1.2) * 0.2 * this.dogWalkWeight;
       } else {
         for (let i = 0; i < 4; i++) {
           this.dogLegs[i].rotation.set(0, 0, 0);
@@ -450,7 +326,7 @@ export class CharacterController {
       }
     } else {
       // -----------------------------------------------------------------------
-      // Completely Settled Stable Idle State (Zero Jiggle, Zero Drift)
+      // Settled Stable Idle (Zero oscillation, zero drift, square stance)
       // -----------------------------------------------------------------------
       parts.torsoGroup.position.set(0, 0.22, 0);
       parts.torsoGroup.rotation.set(0, 0, 0);

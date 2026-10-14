@@ -6,7 +6,6 @@ import { Materials } from './graphics/Materials';
 import { WaterSystem } from './graphics/WaterSystem';
 import { DayNightSystem } from './graphics/DayNightSystem';
 import { CharacterController } from './character/CharacterController';
-import { AnimationTuningPanel } from './character/AnimationTuningPanel';
 import { CameraController } from './camera/CameraController';
 import { InteractionSystem, InteractableTarget } from './interaction/InteractionSystem';
 import { WorldAudio } from './audio/WorldAudio';
@@ -34,7 +33,6 @@ export class IslandGame {
   private water: WaterSystem;
   private dayNight: DayNightSystem;
   private character: CharacterController;
-  private tuningPanel: AnimationTuningPanel;
   private interactions: InteractionSystem;
   private audio: WorldAudio;
   private ui: WorldUI;
@@ -101,9 +99,6 @@ export class IslandGame {
     this.character = new CharacterController(this.scene, this.state.selectedCulture);
     this.character.setPosition(0, 0, this.state.terrain);
     this.character.setVisible(false); // Character is only visible in Explore Mode
-
-    this.tuningPanel = new AnimationTuningPanel(this.character);
-    this.tuningPanel.setVisible(false); // Hidden during Build Mode initially
 
     this.boatTravel = new BoatTravelSystem(this.scene);
     this.scene.add(this.slotMarkers);
@@ -285,7 +280,6 @@ export class IslandGame {
     if (this.cameraCtrl.mode === 'build') {
       this.cameraCtrl.switchToExplore(this.character);
       this.character.setVisible(true);
-      this.tuningPanel?.setVisible(true);
       if (this.ghostMesh) {
         this.scene.remove(this.ghostMesh);
         this.ghostMesh = null;
@@ -295,7 +289,6 @@ export class IslandGame {
     } else {
       this.cameraCtrl.switchToBuild();
       this.character.setVisible(false);
-      this.tuningPanel?.setVisible(false);
       this.slotMarkers.visible = true;
       this.updateAvailableSlotMarkers();
       this.clearPressedKeys();

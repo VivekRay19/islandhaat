@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { damp, easeInOutCubic, lerp } from '../core/math';
 import { CharacterController } from '../character/CharacterController';
 
-export type GameMode = 'build' | 'explore';
+export type GameMode = 'build' | 'explore' | 'cinematic';
 
 export class CameraController {
   public camera: THREE.PerspectiveCamera;
@@ -124,6 +124,9 @@ export class CameraController {
       const targetPos = this.getBuildTargetPos();
       this.currentPos.copy(targetPos);
       this.currentTarget.copy(this.buildTarget);
+    } else if (this.mode === 'cinematic') {
+      // Cinematic camera target is driven externally
+      return;
     } else {
       // Explore mode follow
       const targetPos = this.getExploreTargetPos(character);
@@ -139,5 +142,20 @@ export class CameraController {
 
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentTarget);
+  }
+
+  public setCinematicTarget(camPos: THREE.Vector3, lookAtTarget: THREE.Vector3, instant = false): void {
+    this.mode = 'cinematic';
+    if (instant) {
+      this.currentPos.copy(camPos);
+      this.currentTarget.copy(lookAtTarget);
+      this.camera.position.copy(camPos);
+      this.camera.lookAt(lookAtTarget);
+    } else {
+      this.currentPos.lerp(camPos, 0.08);
+      this.currentTarget.lerp(lookAtTarget, 0.1);
+      this.camera.position.copy(this.currentPos);
+      this.camera.lookAt(this.currentTarget);
+    }
   }
 }

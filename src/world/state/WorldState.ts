@@ -66,10 +66,19 @@ export class WorldState {
   public activeSynergies: string[] = [];
   public activeEvent: WorldEvent | null = null;
   public hasOpenedChest: boolean = false;
+  public roomId: string;
+  public isSinglePlayer: boolean;
 
-  constructor(culture: IndianState = 'bihar') {
+  constructor(
+    culture: IndianState = 'bihar',
+    roomId: string = 'sangam_haat',
+    isSinglePlayer: boolean = false,
+    initialMembers?: Array<{ playerId: string; playerName: string; culture: IndianState | null }>
+  ) {
     this.selectedCulture = culture;
     this.currentLocation = culture;
+    this.roomId = roomId;
+    this.isSinglePlayer = isSinglePlayer;
     const profile = CULTURE_PROFILES[culture];
 
     // Initialize systems
@@ -77,7 +86,7 @@ export class WorldState {
     this.cropInventory = new CropInventorySystem(undefined, profile.startingResources.coins);
     this.coins = this.cropInventory.getCoins();
     this.alliances = new AllianceSystem();
-    this.multiplayer = new MultiplayerRoom('sangam_haat', undefined, culture);
+    this.multiplayer = new MultiplayerRoom(roomId, undefined, culture, isSinglePlayer, initialMembers);
 
     this.inventory = {
       grain: profile.startingResources.grain,
@@ -688,19 +697,28 @@ export class WorldState {
       registeredFarms: Array.from(this.registeredFarms.entries())
     };
     try {
-      localStorage.setItem('cultural_islands_save_v1', JSON.stringify(saveObj));
+      const key = this.roomId ? `cultural_islands_save_${this.roomId}` : 'cultural_islands_save_v1';
+      localStorage.setItem(key, JSON.stringify(saveObj));
+      if (!this.roomId || this.roomId === 'sangam_haat' || this.isSinglePlayer) {
+        localStorage.setItem('cultural_islands_save_v1', JSON.stringify(saveObj));
+      }
     } catch (e) {
       console.warn('Failed to save to localStorage:', e);
     }
   }
 
-  public static loadFromStorage(): WorldState | null {
+  public static loadFromStorage(roomId?: string): WorldState | null {
     try {
-      const dataStr = localStorage.getItem('cultural_islands_save_v1');
+      const key = roomId ? `cultural_islands_save_${roomId}` : 'cultural_islands_save_v1';
+      let dataStr = localStorage.getItem(key);
+      if (!dataStr && roomId) {
+        dataStr = localStorage.getItem('cultural_islands_save_v1');
+      }
       if (!dataStr) return null;
       const data = JSON.parse(dataStr);
 
-      const state = new WorldState(data.selectedCulture || 'bihar');
+      const isSingle = data.isSinglePlayer ?? (roomId === 'solo');
+      const state = new WorldState(data.selectedCulture || 'bihar', roomId || data.roomId || 'sangam_haat', isSingle);
       state.cultureScore = data.cultureScore || 0;
       state.refills = data.refills || 5;
       state.level = data.level || 1;

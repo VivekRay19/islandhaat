@@ -31,7 +31,8 @@ export type NetworkMessageType =
   | 'ALLIANCE_DECLINED'
   | 'ALLIANCE_EXPIRED'
   | 'ROOM_STATE_REQUEST'
-  | 'ROOM_STATE_SYNC';
+  | 'ROOM_STATE_SYNC'
+  | 'PLAYER_TRAVEL_STATE';
 
 export interface NetworkMessage {
   type: NetworkMessageType;
@@ -72,13 +73,17 @@ export class MultiplayerRoom {
   private heartbeatTimer: any = null;
   private pruneTimer: any = null;
   private lastMoveSentTime: number = 0;
+  public isSinglePlayer: boolean = false;
 
   constructor(
     roomId: string = 'sangam_haat',
     playerName?: string,
-    homeIsland: IndianState = 'bihar'
+    homeIsland: IndianState = 'bihar',
+    isSinglePlayer: boolean = false,
+    initialMembers?: Array<{ playerId: string; playerName: string; culture: IndianState | null }>
   ) {
     this.roomId = roomId;
+    this.isSinglePlayer = isSinglePlayer;
     this.localPlayerId = this.getOrCreatePlayerId();
     this.localHomeIsland = homeIsland;
     this.currentLocation = homeIsland;
@@ -90,8 +95,22 @@ export class MultiplayerRoom {
       playerName: this.localPlayerName
     });
 
-    this.initTransport();
-    this.startHeartbeat();
+    // Register known server members' home islands
+    if (initialMembers) {
+      for (const m of initialMembers) {
+        if (m.culture) {
+          this.islandOwners.set(m.culture, {
+            playerId: m.playerId,
+            playerName: m.playerName
+          });
+        }
+      }
+    }
+
+    if (!this.isSinglePlayer) {
+      this.initTransport();
+      this.startHeartbeat();
+    }
   }
 
   private getOrCreatePlayerId(): string {
@@ -336,6 +355,18 @@ export class MultiplayerRoom {
         }
         break;
       }
+
+      case 'PLAYER_TRAVEL_STATE': {
+        const { playerId, state, to } = msg.payload;
+        const p = this.remotePlayers.get(playerId);
+        if (p) {
+          if (state === 'arrived') {
+            p.currentLocation = to;
+          }
+          this.onRemotePlayerUpdate?.(Array.from(this.remotePlayers.values()));
+        }
+        break;
+      }
     }
   }
 
@@ -420,6 +451,22 @@ export class MultiplayerRoom {
   public updateCurrentLocation(newLoc: WorldDestinationId): void {
     this.currentLocation = newLoc;
     this.sendHeartbeat('PLAYER_MOVE');
+  }
+
+  public broadcastTravelState(state: 'sailing' | 'arrived', from: WorldDestinationId, to: WorldDestinationId): void {
+    if (state === 'arrived') {
+      this.currentLocation = to;
+    }
+    if (this.isSinglePlayer) return;
+
+    this.broadcastMessage('PLAYER_TRAVEL_STATE', {
+      playerId: this.localPlayerId,
+      playerName: this.localPlayerName,
+      state,
+      from,
+      to,
+      currentLocation: this.currentLocation
+    });
   }
 
   public getIslandOwners(): Map<IndianState, { playerId: string; playerName: string }> {

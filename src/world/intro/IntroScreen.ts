@@ -211,7 +211,7 @@ export class IntroScreen {
       align-items: center;
       gap: 6px;
     `;
-    introVersion.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> Island Haat v3.0.1 (Tile Persistence Fix & Iron Golem Locomotion)`;
+    introVersion.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> Island Haat v3.1.0 (Multiplayer Lobbies, Unique Culture Selection & 3D Sailing)`;
     uiLayer.appendChild(introVersion);
 
     // Bottom-Right: Social & Help Icons

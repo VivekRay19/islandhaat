@@ -20,6 +20,7 @@ import { WorldDestinationId } from './travel/WorldMapSystem';
 import { FarmDetectionSystem } from './farming/FarmDetectionSystem';
 import { NetworkedPlayer } from './multiplayer/NetworkedPlayer';
 import { RemotePlayerState } from './multiplayer/MultiplayerRoom';
+import { ServerRoom } from './multiplayer/MultiplayerTypes';
 import { ISLAND_CROPS } from './farming/CropConfig';
 
 export class IslandGame {
@@ -69,13 +70,20 @@ export class IslandGame {
   private eventRemovers: (() => void)[] = [];
   private keys: Record<string, boolean> = {};
 
-  constructor(container: HTMLElement, culture: IndianState = 'bihar', isContinue = false) {
+  constructor(
+    container: HTMLElement,
+    culture: IndianState = 'bihar',
+    isContinue = false,
+    roomId: string = 'sangam_haat',
+    isSinglePlayer: boolean = false,
+    initialRoom?: ServerRoom
+  ) {
     this.materials = Materials.get();
     this.audio = WorldAudio.get();
     if (isContinue) {
-      this.state = WorldState.loadFromStorage() || new WorldState(culture);
+      this.state = WorldState.loadFromStorage(roomId) || new WorldState(culture, roomId, isSinglePlayer, initialRoom?.members);
     } else {
-      this.state = new WorldState(culture);
+      this.state = new WorldState(culture, roomId, isSinglePlayer, initialRoom?.members);
     }
     this.interactions = new InteractionSystem();
 
@@ -101,6 +109,10 @@ export class IslandGame {
     this.character.setVisible(false); // Character is only visible in Explore Mode
 
     this.boatTravel = new BoatTravelSystem(this.scene);
+    this.boatTravel.setDockForLocation(this.state.currentLocation);
+    this.boatTravel.onOpenSailingMap = () => {
+      this.ui.showWorldMapModal();
+    };
     this.scene.add(this.slotMarkers);
 
     // 3. UI
@@ -340,6 +352,9 @@ export class IslandGame {
   }
 
   public travelToDestination(destId: WorldDestinationId, destName: string): void {
+    const fromLoc = this.state.currentLocation;
+    this.state.multiplayer.broadcastTravelState('sailing', fromLoc, destId);
+
     this.boatTravel.executeTravelVoyage(
       destId,
       destName,
@@ -350,12 +365,13 @@ export class IslandGame {
         this.state.switchDestination(destId);
         this.rebuildAllTileMeshes();
         this.rebuildFarmOutlines();
-        this.character.setPosition(0, 1.5, this.state.terrain);
+        this.boatTravel.setDockForLocation(destId);
         this.setupTreasureChest();
         this.updateAvailableSlotMarkers();
         this.ui.renderHand();
       },
       () => {
+        this.state.multiplayer.broadcastTravelState('arrived', fromLoc, destId);
         this.ui.showFloatingReward(`Sailed safely to ${destName}!`, window.innerWidth / 2, 120);
       }
     );
@@ -489,6 +505,15 @@ export class IslandGame {
             this.handleSlotClick(slot.q, slot.r);
           }
         }
+      } else if (me.button === 0 && this.cameraCtrl.mode === 'explore') {
+        this.raycaster.setFromCamera(this.mouse, this.cameraCtrl.camera);
+        const boatHits = this.raycaster.intersectObjects(this.boatTravel.dockedBoatMesh.children, true);
+        if (boatHits.length > 0) {
+          const dist = this.character.position.distanceTo(this.boatTravel.getDockPosition());
+          if (dist < 3.2 && !this.boatTravel.isTravelling) {
+            this.ui.showWorldMapModal();
+          }
+        }
       }
     });
 
@@ -609,6 +634,7 @@ export class IslandGame {
     this.tweens.update(dt);
     this.water.update(dt);
     this.dayNight.update(dt);
+    this.boatTravel.update(dt, this.character.position, this.cameraCtrl.mode === 'explore');
     if (this.cameraCtrl.mode === 'explore') {
       this.character.update(dt, this.cameraCtrl.exploreYaw, this.state.terrain);
 
@@ -656,6 +682,7 @@ export class IslandGame {
 
     this.sharedSlotGeo.dispose();
     this.ui.destroy();
+    this.boatTravel.destroy();
 
     this.remotePlayers.forEach((p) => p.destroy(this.scene));
     this.remotePlayers.clear();

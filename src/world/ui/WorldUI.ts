@@ -879,7 +879,7 @@ export class WorldUI {
       const canSail = dest.isAccessible && !isCurrent;
 
       cardsHtml += `
-        <div style="background:rgba(255,255,255,0.06); border:1px solid ${isCurrent ? '#facc15' : 'rgba(255,255,255,0.12)'}; border-radius:14px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="dest-card" data-dest="${dest.id}" data-name="${dest.name}" data-region="${dest.region}" data-crop="${dest.cropDisplayName}" data-owner="${dest.ownerName || 'Uninhabited'}" data-accessible="${canSail}" style="background:rgba(255,255,255,0.06); border:1px solid ${isCurrent ? '#facc15' : 'rgba(255,255,255,0.12)'}; border-radius:14px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:${canSail ? 'pointer' : 'default'}; transition:all 0.15s ease;">
           <div style="display:flex; align-items:center; gap:12px;">
             <div style="font-size:28px;">${dest.emoji}</div>
             <div>
@@ -897,7 +897,7 @@ export class WorldUI {
               isCurrent
                 ? `<span style="font-size:12px; font-weight:800; color:#94a3b8;">Current Dock</span>`
                 : canSail
-                ? `<button class="sail-dest-btn" data-dest="${dest.id}" data-name="${dest.name}" style="background:#0d9488; color:#fff; border:none; border-radius:10px; padding:8px 16px; font-weight:800; font-size:12px; cursor:pointer; box-shadow:0 4px 12px rgba(13,148,136,0.4);">⛵ Sail Here (Free)</button>`
+                ? `<span style="background:rgba(13,148,136,0.25); color:#2dd4bf; border:1px solid #0d9488; border-radius:8px; padding:6px 12px; font-weight:800; font-size:11px;">Select →</span>`
                 : `<span style="font-size:11px; font-weight:700; color:#64748b; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:6px;">Locked (v1)</span>`
             }
           </div>
@@ -909,15 +909,33 @@ export class WorldUI {
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
           <h2 style="font-size:20px; font-weight:900; color:#2dd4bf; margin:0; display:flex; gap:8px; align-items:center;">
-            🗺️ Indian Archipelago World Map
+            🗺️ Indian Archipelago Sailing Map
           </h2>
-          <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Sail freely between cultural islands and the Central Haat marketplace.</div>
+          <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Select an accessible destination dock to prepare for your voyage.</div>
         </div>
         <button id="close-world-map-btn" style="background:transparent; border:none; color:#cbd5e1; font-size:22px; cursor:pointer;">✕</button>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto; padding-right:4px;">
+      <div id="dest-cards-list" style="display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; padding-right:4px;">
         ${cardsHtml}
+      </div>
+
+      <!-- Voyage Confirmation Panel -->
+      <div id="voyage-confirm-panel" style="display:none; background:rgba(30,41,59,0.85); border:1px solid rgba(245,158,11,0.5); border-radius:16px; padding:16px; flex-direction:column; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div id="confirm-dest-title" style="font-size:16px; font-weight:900; color:#fff;"></div>
+            <div id="confirm-dest-sub" style="font-size:12px; color:#94a3b8; margin-top:2px;"></div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px; font-weight:800; color:#4ade80; text-transform:uppercase;">Cost: Free Voyage</div>
+            <div style="font-size:10px; color:#94a3b8;">Visiting rights only</div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:4px;">
+          <button id="cancel-voyage-btn" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; padding:8px 16px; color:#cbd5e1; font-size:12px; font-weight:700; cursor:pointer;">Cancel</button>
+          <button id="confirm-voyage-btn" style="background:linear-gradient(180deg, #ffc83b 0%, #f59e0b 100%); border:none; border-radius:10px; padding:8px 20px; color:#3e1c00; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(245,158,11,0.4);">⛵ Confirm & Set Sail</button>
+        </div>
       </div>
     `;
 
@@ -930,16 +948,62 @@ export class WorldUI {
       this.activeModal = 'none';
     });
 
-    const sailBtns = modal.querySelectorAll('.sail-dest-btn');
-    sailBtns.forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const destId = (e.currentTarget as HTMLElement).getAttribute('data-dest') as WorldDestinationId;
-        const destName = (e.currentTarget as HTMLElement).getAttribute('data-name') || destId;
-        modal.remove();
-        this.worldMapModal = null;
-        this.activeModal = 'none';
-        this.callbacks.onTravel?.(destId, destName);
-        this.updateCultureBadge();
+    const confirmPanel = modal.querySelector('#voyage-confirm-panel') as HTMLElement;
+    const confirmTitle = modal.querySelector('#confirm-dest-title') as HTMLElement;
+    const confirmSub = modal.querySelector('#confirm-dest-sub') as HTMLElement;
+    const confirmBtn = modal.querySelector('#confirm-voyage-btn') as HTMLButtonElement;
+    const cancelBtn = modal.querySelector('#cancel-voyage-btn') as HTMLButtonElement;
+
+    let selectedDestId: WorldDestinationId | null = null;
+    let selectedDestName: string = '';
+
+    cancelBtn.onclick = () => {
+      confirmPanel.style.display = 'none';
+      selectedDestId = null;
+      modal.querySelectorAll('.dest-card').forEach(c => {
+        (c as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
+      });
+    };
+
+    confirmBtn.onclick = () => {
+      if (!selectedDestId) return;
+      modal.remove();
+      this.worldMapModal = null;
+      this.activeModal = 'none';
+      this.callbacks.onTravel?.(selectedDestId, selectedDestName);
+      this.updateCultureBadge();
+    };
+
+    const cardEls = modal.querySelectorAll('.dest-card');
+    cardEls.forEach((card) => {
+      const isAccessible = card.getAttribute('data-accessible') === 'true';
+      if (!isAccessible) return;
+
+      card.addEventListener('mouseenter', () => {
+        (card as HTMLElement).style.borderColor = '#0d9488';
+        (card as HTMLElement).style.transform = 'translateY(-2px)';
+      });
+      card.addEventListener('mouseleave', () => {
+        const destId = card.getAttribute('data-dest');
+        if (destId !== selectedDestId) {
+          (card as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
+        }
+        (card as HTMLElement).style.transform = 'translateY(0)';
+      });
+
+      card.addEventListener('click', () => {
+        cardEls.forEach(c => (c as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)');
+        (card as HTMLElement).style.borderColor = '#f59e0b';
+
+        selectedDestId = card.getAttribute('data-dest') as WorldDestinationId;
+        selectedDestName = card.getAttribute('data-name') || selectedDestId;
+        const region = card.getAttribute('data-region') || '';
+        const crop = card.getAttribute('data-crop') || '';
+        const owner = card.getAttribute('data-owner') || '';
+
+        confirmTitle.textContent = `⛵ Course: ${selectedDestName}`;
+        confirmSub.textContent = `${region} • Crop: ${crop} • Realm of: ${owner}`;
+        confirmPanel.style.display = 'flex';
       });
     });
   }

@@ -6,6 +6,8 @@ import { CultureSelectionScreen } from './culture/CultureSelectionScreen';
 import { IslandGame } from './IslandGame';
 import { IndianState } from './culture/CultureTypes';
 import { ServerRoom } from './multiplayer/MultiplayerTypes';
+import { SessionManager } from './session/SessionManager';
+import { WorldState } from './state/WorldState';
 
 export class GameManager {
   private container: HTMLElement;
@@ -51,8 +53,60 @@ export class GameManager {
 
     this.introScreen.setCallbacks({
       onNewGame: () => this.openGameModeSelect(),
-      onContinue: () => this.startGame('bihar', true, 'sangam_haat', true)
+      onContinue: () => this.handleContinue()
     });
+  }
+
+  /**
+   * Authoritative session continuation: restores the exact session (single-player or multiplayer),
+   * culture, home island, current location, tiles, and farms.
+   */
+  private handleContinue(): void {
+    const session = SessionManager.getSession();
+
+    if (session) {
+      if (session.sessionType === 'multiplayer') {
+        // Check if authoritative save exists for this multiplayer room
+        const savedRoomState = WorldState.loadFromStorage(session.roomId);
+        if (savedRoomState) {
+          this.startGame(session.culture, true, session.roomId, false);
+          return;
+        }
+        // Fallback to solo if multiplayer room storage was migrated
+        const soloState = WorldState.loadFromStorage('solo');
+        if (soloState) {
+          this.startGame(session.culture, true, 'solo', true);
+          return;
+        }
+        // Attempt room connection with authoritative culture
+        this.startGame(session.culture, true, session.roomId, false);
+        return;
+      } else {
+        // Single-player session: load exact culture & solo state
+        this.startGame(session.culture, true, 'solo', true);
+        return;
+      }
+    }
+
+    // Legacy fallback check: look for 'solo' or legacy v1 save
+    const legacy = WorldState.loadFromStorage('solo') || WorldState.loadFromStorage();
+    if (legacy) {
+      const culture = legacy.selectedCulture || 'bihar';
+      SessionManager.saveSession({
+        sessionType: 'single',
+        roomId: 'solo',
+        culture,
+        homeIsland: culture,
+        currentLocation: legacy.currentLocation || culture,
+        playerName: SessionManager.getPlayerName(),
+        timestamp: Date.now()
+      });
+      this.startGame(culture, true, 'solo', true);
+      return;
+    }
+
+    // If no save data exists, prompt user to select game mode
+    this.openGameModeSelect();
   }
 
   private openGameModeSelect(): void {
@@ -73,6 +127,16 @@ export class GameManager {
     this.cultureScreen.setCallbacks({
       onConfirm: (selectedState: IndianState) => {
         this.cleanupAllMenus();
+        // Persist new single-player session
+        SessionManager.saveSession({
+          sessionType: 'single',
+          roomId: 'solo',
+          culture: selectedState,
+          homeIsland: selectedState,
+          currentLocation: selectedState,
+          playerName: SessionManager.getPlayerName(),
+          timestamp: Date.now()
+        });
         this.startGame(selectedState, false, 'solo', true);
       },
       onBack: () => {
@@ -102,6 +166,18 @@ export class GameManager {
     this.lobbyScreen.setCallbacks({
       onGameStart: (startedRoom: ServerRoom, chosenCulture: IndianState) => {
         this.cleanupAllMenus();
+        // Persist new multiplayer session
+        SessionManager.saveSession({
+          sessionType: 'multiplayer',
+          roomId: startedRoom.id,
+          roomName: startedRoom.name,
+          roomCode: startedRoom.code,
+          culture: chosenCulture,
+          homeIsland: chosenCulture,
+          currentLocation: chosenCulture,
+          playerName: SessionManager.getPlayerName(),
+          timestamp: Date.now()
+        });
         this.startGame(chosenCulture, false, startedRoom.id, false, startedRoom);
       },
       onLeave: () => {
@@ -113,7 +189,7 @@ export class GameManager {
   private startGame(
     culture: IndianState,
     isContinue: boolean,
-    roomId: string = 'sangam_haat',
+    roomId: string = 'solo',
     isSinglePlayer: boolean = false,
     room?: ServerRoom
   ): void {

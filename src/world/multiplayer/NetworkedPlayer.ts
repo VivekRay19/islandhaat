@@ -15,8 +15,11 @@ export class NetworkedPlayer {
   private isMoving: boolean = false;
   private walkPhase: number = 0;
 
+  private currentDisplayedName: string;
+
   constructor(scene: THREE.Scene, state: RemotePlayerState) {
     this.playerId = state.playerId;
+    this.currentDisplayedName = state.playerName;
     this.group = new THREE.Group();
 
     // 1. Cultural 3D Model
@@ -74,6 +77,18 @@ export class NetworkedPlayer {
     this.targetPos.set(state.x, state.y, state.z);
     this.targetRotationY = state.rotationY;
     this.isMoving = state.isMoving;
+
+    if (state.playerName && state.playerName !== this.currentDisplayedName) {
+      this.currentDisplayedName = state.playerName;
+      this.group.remove(this.nameplateMesh);
+      if (this.nameplateMesh.material.map) {
+        this.nameplateMesh.material.map.dispose();
+      }
+      this.nameplateMesh.material.dispose();
+      this.nameplateMesh = this.createNameplate(state.playerName, state.homeIsland);
+      this.nameplateMesh.position.set(0, 0.85, 0);
+      this.group.add(this.nameplateMesh);
+    }
   }
 
   public update(dt: number): void {

@@ -2,6 +2,7 @@ import { supabase } from '../supabase/supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { IndianState } from '../culture/CultureTypes';
 import { ServerRoom, RoomMember, ServerStatus } from './MultiplayerTypes';
+import { SessionManager } from '../session/SessionManager';
 
 export class LobbyService {
   private static instance: LobbyService;
@@ -25,7 +26,7 @@ export class LobbyService {
 
   private constructor() {
     this.localPlayerId = this.getOrCreatePlayerId();
-    this.localPlayerName = sessionStorage.getItem('islandhaat_player_name') || 'Cultural Voyager';
+    this.localPlayerName = SessionManager.getPlayerName();
   }
 
   public getLocalPlayerId(): string {
@@ -33,11 +34,12 @@ export class LobbyService {
   }
 
   public setPlayerName(name: string): void {
-    this.localPlayerName = name.trim() || 'Cultural Voyager';
-    sessionStorage.setItem('islandhaat_player_name', this.localPlayerName);
+    const res = SessionManager.setPlayerName(name);
+    this.localPlayerName = res.name;
   }
 
   public getPlayerName(): string {
+    this.localPlayerName = SessionManager.getPlayerName();
     return this.localPlayerName;
   }
 

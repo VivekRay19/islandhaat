@@ -12,9 +12,26 @@ export interface PlacedTile {
   isDamaged?: boolean;
 }
 
+export interface DockArea {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  height: number;
+}
+
 /** Evaluates smooth continuous terrain heights, water paths, and ground types across the hex island. */
 export class TerrainField {
   private tiles: Map<string, PlacedTile> = new Map();
+  private dockArea: DockArea | null = null;
+
+  public setDockArea(dock: DockArea | null): void {
+    this.dockArea = dock;
+  }
+
+  public getDockArea(): DockArea | null {
+    return this.dockArea;
+  }
 
   public clear(): void {
     this.tiles.clear();
@@ -57,6 +74,14 @@ export class TerrainField {
    * Returns negative height if outside island (water surface is Y = 0).
    */
   public getHeight(x: number, z: number): number {
+    // If player is on the dock walkway platform
+    if (this.dockArea) {
+      if (x >= this.dockArea.minX && x <= this.dockArea.maxX &&
+          z >= this.dockArea.minZ && z <= this.dockArea.maxZ) {
+        return this.dockArea.height;
+      }
+    }
+
     // Find closest hex tile
     const r = z / (1.5 * HEX_R);
     const q = x / (SQRT3 * HEX_R) - r / 2;
@@ -112,6 +137,14 @@ export class TerrainField {
    * Check if position (x, z) is walkable for the character.
    */
   public isWalkable(x: number, z: number): boolean {
+    // Dock walkway is always walkable
+    if (this.dockArea) {
+      if (x >= this.dockArea.minX && x <= this.dockArea.maxX &&
+          z >= this.dockArea.minZ && z <= this.dockArea.maxZ) {
+        return true;
+      }
+    }
+
     const r = z / (1.5 * HEX_R);
     const q = x / (SQRT3 * HEX_R) - r / 2;
     const center = this.cubeRound(q, r);
@@ -123,6 +156,13 @@ export class TerrainField {
     const cz = 1.5 * HEX_R * center.r;
     const dist = Math.hypot(x - cx, z - cz);
     if (dist > HEX_R * 0.92) {
+      // If stepping into dock area, allow passage onto the dock pier
+      if (this.dockArea) {
+        if (x >= this.dockArea.minX && x <= this.dockArea.maxX &&
+            z >= this.dockArea.minZ && z <= this.dockArea.maxZ) {
+          return true;
+        }
+      }
       // Check if neighboring hex in this direction exists
       const angle = Math.atan2(-(z - cz), x - cx);
       let normAngle = angle;

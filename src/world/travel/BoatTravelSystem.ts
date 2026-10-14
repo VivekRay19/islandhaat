@@ -3,15 +3,20 @@ import { Materials } from '../graphics/Materials';
 import { CameraController } from '../camera/CameraController';
 import { CharacterController } from '../character/CharacterController';
 import { WorldDestinationId } from './WorldMapSystem';
+import { TerrainField, DockArea } from '../hex/TerrainField';
 
 export class BoatTravelSystem {
   private scene: THREE.Scene;
+  public dockMesh: THREE.Group;
   public dockedBoatMesh: THREE.Group;
   public travellingBoatMesh: THREE.Group;
   public isTravelling: boolean = false;
 
-  private currentDockPos: THREE.Vector3 = new THREE.Vector3(0.85, 0.04, 2.3);
-  private currentDockRotY: number = 0;
+  private currentDockPos: THREE.Vector3 = new THREE.Vector3(0.866, 0.0, 2.3);
+  private currentBoatPos: THREE.Vector3 = new THREE.Vector3(1.85, 0.04, 2.45);
+  private currentBoatRotY: number = 0;
+  private currentDisembarkPos: THREE.Vector3 = new THREE.Vector3(0.866, 0.32, 2.4);
+
   private promptEl!: HTMLElement;
   private voyageBannerEl!: HTMLElement;
 
@@ -25,40 +30,71 @@ export class BoatTravelSystem {
   constructor(scene: THREE.Scene) {
     this.scene = scene;
 
-    // 1. Build docked boat
+    // 1. Build dedicated 3D wooden dock pier
+    this.dockMesh = this.createDockMesh();
+    this.dockMesh.position.copy(this.currentDockPos);
+    this.scene.add(this.dockMesh);
+
+    // 2. Build docked boat
     this.dockedBoatMesh = this.createBoatMesh();
-    this.dockedBoatMesh.position.copy(this.currentDockPos);
+    this.dockedBoatMesh.position.copy(this.currentBoatPos);
+    this.dockedBoatMesh.rotation.y = this.currentBoatRotY;
     this.scene.add(this.dockedBoatMesh);
 
-    // 2. Build travelling boat (used during the voyage)
+    // 3. Build travelling boat (used during the voyage)
     this.travellingBoatMesh = this.createBoatMesh();
     this.travellingBoatMesh.visible = false;
     this.scene.add(this.travellingBoatMesh);
 
-    // 3. Build water wake ripples
+    // 4. Build water wake ripples
     this.wakeGroup = new THREE.Group();
     this.wakeGroup.visible = false;
     this.buildWakeRings();
     this.scene.add(this.wakeGroup);
 
-    // 4. Create UI Prompts & Banners
+    // 5. Create UI Prompts & Banners
     this.createUIElements();
     this.setupKeyboardListener();
   }
 
+  public getDockAreaForLocation(location: WorldDestinationId): DockArea {
+    if (location === 'central_haat') {
+      return {
+        minX: 1.15,
+        maxX: 2.30,
+        minZ: 3.05,
+        maxZ: 4.60,
+        height: 0.32
+      };
+    } else {
+      return {
+        minX: 0.30,
+        maxX: 1.45,
+        minZ: 1.55,
+        maxZ: 3.10,
+        height: 0.32
+      };
+    }
+  }
+
   public setDockForLocation(location: WorldDestinationId): void {
     if (location === 'central_haat') {
-      // Central Haat arrival pier is at (0, 2)
-      this.currentDockPos.set(0.0, 0.04, 3.4);
-      this.currentDockRotY = Math.PI;
+      // Central Haat pier extends from tile (0, 2) southward
+      this.currentDockPos.set(1.732, 0.0, 3.8);
+      this.currentBoatPos.set(2.70, 0.04, 3.85);
+      this.currentBoatRotY = 0;
+      this.currentDisembarkPos.set(1.732, 0.32, 3.8);
     } else {
-      // Cultural island dock near coastal tile (0, 1)
-      this.currentDockPos.set(0.85, 0.04, 2.3);
-      this.currentDockRotY = Math.PI * 0.15;
+      // Cultural island pier extends from coastal tile (0, 1) southward
+      this.currentDockPos.set(0.866, 0.0, 2.3);
+      this.currentBoatPos.set(1.85, 0.04, 2.45);
+      this.currentBoatRotY = 0;
+      this.currentDisembarkPos.set(0.866, 0.32, 2.4);
     }
 
-    this.dockedBoatMesh.position.copy(this.currentDockPos);
-    this.dockedBoatMesh.rotation.y = this.currentDockRotY;
+    this.dockMesh.position.copy(this.currentDockPos);
+    this.dockedBoatMesh.position.copy(this.currentBoatPos);
+    this.dockedBoatMesh.rotation.y = this.currentBoatRotY;
     this.dockedBoatMesh.visible = !this.isTravelling;
   }
 
@@ -70,82 +106,218 @@ export class BoatTravelSystem {
     return this.dockedBoatMesh;
   }
 
+  /**
+   * Dedicated 3D Wooden Harbour Dock / Pier.
+   * Features sturdy deck planks, underwater pilings, mooring bollards, and lantern post.
+   */
+  private createDockMesh(): THREE.Group {
+    const group = new THREE.Group();
+    const mats = Materials.get();
+
+    // 1. Deck Planks (spans width 1.05m, length 1.55m, top surface at y = 0.32)
+    const plankWidth = 1.05;
+    const plankLength = 0.18;
+    const plankThickness = 0.06;
+    const numPlanks = 8;
+    const spacing = 0.19;
+
+    for (let i = 0; i < numPlanks; i++) {
+      const plankGeo = new THREE.BoxGeometry(plankWidth, plankThickness, plankLength);
+      const plank = new THREE.Mesh(plankGeo, mats.woodPlanks);
+      const zOffset = (i - (numPlanks - 1) / 2) * spacing;
+      plank.position.set(0, 0.29, zOffset);
+      plank.castShadow = true;
+      plank.receiveShadow = true;
+      group.add(plank);
+    }
+
+    // 2. Longitudinal Sub-Frame Beams
+    const beamGeo = new THREE.BoxGeometry(0.10, 0.12, 1.58);
+    const beamL = new THREE.Mesh(beamGeo, mats.darkWood);
+    beamL.position.set(-0.48, 0.20, 0);
+    beamL.castShadow = true;
+    group.add(beamL);
+
+    const beamR = new THREE.Mesh(beamGeo, mats.darkWood);
+    beamR.position.set(0.48, 0.20, 0);
+    beamR.castShadow = true;
+    group.add(beamR);
+
+    // 3. Timber Pilings (driving deep into the sea)
+    const pilingGeo = new THREE.CylinderGeometry(0.05, 0.055, 0.95, 6);
+    const pilingPositions = [
+      [-0.48, -0.15, -0.68],
+      [0.48, -0.15, -0.68],
+      [-0.48, -0.15, 0],
+      [0.48, -0.15, 0],
+      [-0.48, -0.15, 0.68],
+      [0.48, -0.15, 0.68]
+    ];
+
+    pilingPositions.forEach(([px, py, pz]) => {
+      const piling = new THREE.Mesh(pilingGeo, mats.darkWood);
+      piling.position.set(px, py, pz);
+      piling.castShadow = true;
+      group.add(piling);
+    });
+
+    // 4. Seaward Mooring Bollards (where boat lines tie off)
+    const bollardBaseGeo = new THREE.CylinderGeometry(0.045, 0.05, 0.20, 6);
+    const bollardCapGeo = new THREE.CylinderGeometry(0.06, 0.045, 0.05, 6);
+
+    [[-0.48, 0.65], [0.48, 0.65]].forEach(([bx, bz]) => {
+      const bBase = new THREE.Mesh(bollardBaseGeo, mats.darkWood);
+      bBase.position.set(bx, 0.40, bz);
+      bBase.castShadow = true;
+      group.add(bBase);
+
+      const bCap = new THREE.Mesh(bollardCapGeo, mats.wood);
+      bCap.position.set(bx, 0.51, bz);
+      group.add(bCap);
+    });
+
+    // 5. Dock Lantern Post (warm welcoming glow)
+    const postGeo = new THREE.CylinderGeometry(0.03, 0.035, 0.72, 6);
+    const post = new THREE.Mesh(postGeo, mats.darkWood);
+    post.position.set(0.48, 0.66, -0.68);
+    post.castShadow = true;
+    group.add(post);
+
+    const armGeo = new THREE.BoxGeometry(0.14, 0.03, 0.03);
+    const arm = new THREE.Mesh(armGeo, mats.darkWood);
+    arm.position.set(0.42, 0.98, -0.68);
+    group.add(arm);
+
+    const lanternGeo = new THREE.BoxGeometry(0.08, 0.12, 0.08);
+    const lantern = new THREE.Mesh(lanternGeo, mats.lanternGlow);
+    lantern.position.set(0.36, 0.90, -0.68);
+    group.add(lantern);
+
+    return group;
+  }
+
+  /**
+   * Redesigned Indian Haat Shikara Boat.
+   * Large, stable hull (2.3m x 1.15m) with sunken passenger footwell deck at y = 0.08,
+   * comfortable passenger bench, ornamental prow, and a high arched pavilion canopy
+   * positioned at y = 1.08m with 32cm+ clear headroom for the player's head and turban.
+   */
   private createBoatMesh(): THREE.Group {
     const group = new THREE.Group();
     const mats = Materials.get();
 
-    // Wooden hull (carved boat body)
-    const hullGeo = new THREE.BoxGeometry(0.72, 0.24, 1.45);
+    // 1. Main Outer Hull (carved teak wood body)
+    const hullGeo = new THREE.BoxGeometry(1.15, 0.32, 2.30);
     const hull = new THREE.Mesh(hullGeo, mats.darkWood);
-    hull.position.y = 0.09;
+    hull.position.y = 0.14;
     hull.castShadow = true;
     hull.receiveShadow = true;
     group.add(hull);
 
-    // Pointed bow
-    const bowGeo = new THREE.ConeGeometry(0.36, 0.58, 4);
-    const bow = new THREE.Mesh(bowGeo, mats.wood);
-    bow.position.set(0, 0.09, 1.0);
+    // 2. Recessed Sunken Passenger Deck (footwell)
+    const deckGeo = new THREE.BoxGeometry(0.96, 0.04, 1.65);
+    const deck = new THREE.Mesh(deckGeo, mats.woodPlanks);
+    deck.position.set(0, 0.08, -0.15);
+    deck.receiveShadow = true;
+    group.add(deck);
+
+    // Gunwale Side Rails (flared rim)
+    const railGeo = new THREE.BoxGeometry(0.08, 0.14, 1.80);
+    const railL = new THREE.Mesh(railGeo, mats.wood);
+    railL.position.set(-0.54, 0.34, -0.15);
+    group.add(railL);
+
+    const railR = new THREE.Mesh(railGeo, mats.wood);
+    railR.position.set(0.54, 0.34, -0.15);
+    group.add(railR);
+
+    // 3. Pointed Prow / Bow (tapered forward nose)
+    const bowGeo = new THREE.ConeGeometry(0.56, 0.85, 4);
+    const bow = new THREE.Mesh(bowGeo, mats.darkWood);
+    bow.position.set(0, 0.14, 1.55);
     bow.rotation.x = Math.PI / 2;
+    bow.rotation.y = Math.PI / 4;
     bow.castShadow = true;
     group.add(bow);
 
-    // Seating bench
-    const benchGeo = new THREE.BoxGeometry(0.58, 0.06, 0.24);
-    const bench = new THREE.Mesh(benchGeo, mats.woodPlanks);
-    bench.position.set(0, 0.17, -0.1);
+    // Bow Brass Trim Ornament
+    const bowFinialGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const bowFinial = new THREE.Mesh(bowFinialGeo, mats.lanternGlow);
+    bowFinial.position.set(0, 0.32, 1.95);
+    group.add(bowFinial);
+
+    // 4. Rear Passenger Bench
+    const benchGeo = new THREE.BoxGeometry(0.88, 0.12, 0.34);
+    const bench = new THREE.Mesh(benchGeo, mats.wood);
+    bench.position.set(0, 0.22, -0.75);
+    bench.castShadow = true;
     group.add(bench);
 
-    // Traditional woven canopy awning
-    const awningGeo = new THREE.BoxGeometry(0.62, 0.03, 0.74);
-    const awning = new THREE.Mesh(awningGeo, mats.thatch);
-    awning.position.set(0, 0.5, -0.05);
-    awning.castShadow = true;
-    group.add(awning);
+    // 5. Awning Support Pillars (4 corner timber posts rising from deck to canopy)
+    const postGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.98, 6);
+    const pillarCoords = [
+      [-0.46, 0.58, 0.45],
+      [0.46, 0.58, 0.45],
+      [-0.46, 0.58, -0.55],
+      [0.46, 0.58, -0.55]
+    ];
 
-    // Awning support posts
-    const postGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.42, 4);
-    const p1 = new THREE.Mesh(postGeo, mats.wood);
-    p1.position.set(-0.28, 0.3, 0.28);
-    group.add(p1);
+    pillarCoords.forEach(([px, py, pz]) => {
+      const pillar = new THREE.Mesh(postGeo, mats.darkWood);
+      pillar.position.set(px, py, pz);
+      pillar.castShadow = true;
+      group.add(pillar);
+    });
 
-    const p2 = new THREE.Mesh(postGeo, mats.wood);
-    p2.position.set(0.28, 0.3, 0.28);
-    group.add(p2);
+    // 6. High Arched Pavilion Canopy Awning (Roof top at y = 1.08m)
+    // Standing character height is ~0.70m, giving 32cm+ of clear headroom!
+    const canopyRoofGeo = new THREE.BoxGeometry(1.08, 0.05, 1.25);
+    const canopyRoof = new THREE.Mesh(canopyRoofGeo, mats.thatch);
+    canopyRoof.position.set(0, 1.08, -0.05);
+    canopyRoof.castShadow = true;
+    group.add(canopyRoof);
 
-    const p3 = new THREE.Mesh(postGeo, mats.wood);
-    p3.position.set(-0.28, 0.3, -0.38);
-    group.add(p3);
+    // Canopy Crown Peak (curved arch ridge)
+    const peakGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.26, 6);
+    const peak = new THREE.Mesh(peakGeo, mats.wood);
+    peak.rotation.x = Math.PI / 2;
+    peak.position.set(0, 1.13, -0.05);
+    group.add(peak);
 
-    const p4 = new THREE.Mesh(postGeo, mats.wood);
-    p4.position.set(0.28, 0.3, -0.38);
-    group.add(p4);
+    // Saffron Gold Cloth Border Trim along canopy edges
+    const trimGeo = new THREE.BoxGeometry(1.10, 0.08, 0.04);
+    const trimF = new THREE.Mesh(trimGeo, mats.lanternGlow);
+    trimF.position.set(0, 1.04, 0.57);
+    group.add(trimF);
 
-    // Brass travel lantern on bow
-    const lanternGeo = new THREE.BoxGeometry(0.09, 0.12, 0.09);
+    const trimB = new THREE.Mesh(trimGeo, mats.lanternGlow);
+    trimB.position.set(0, 1.04, -0.67);
+    group.add(trimB);
+
+    // 7. Brass Travel Lantern on Bow Post
+    const lanternGeo = new THREE.BoxGeometry(0.10, 0.14, 0.10);
     const lantern = new THREE.Mesh(lanternGeo, mats.lanternGlow);
-    lantern.position.set(0, 0.24, 1.2);
+    lantern.position.set(0, 0.38, 1.65);
     group.add(lantern);
 
-    // Two oars resting on side
-    const oarGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.9, 4);
+    // 8. Resting Ceremonial Oars
+    const oarGeo = new THREE.CylinderGeometry(0.012, 0.012, 1.30, 4);
     const oarL = new THREE.Mesh(oarGeo, mats.wood);
-    oarL.position.set(-0.4, 0.18, 0);
-    oarL.rotation.set(0.2, 0, 0.3);
+    oarL.position.set(-0.62, 0.30, 0);
+    oarL.rotation.set(0.15, 0, 0.25);
     group.add(oarL);
 
     const oarR = new THREE.Mesh(oarGeo, mats.wood);
-    oarR.position.set(0.4, 0.18, 0);
-    oarR.rotation.set(0.2, 0, -0.3);
+    oarR.position.set(0.62, 0.30, 0);
+    oarR.rotation.set(0.15, 0, -0.25);
     group.add(oarR);
 
     return group;
   }
 
   private buildWakeRings(): void {
-    const mats = Materials.get();
     for (let i = 0; i < 4; i++) {
-      const ringGeo = new THREE.RingGeometry(0.2 + i * 0.15, 0.32 + i * 0.18, 16);
+      const ringGeo = new THREE.RingGeometry(0.3 + i * 0.2, 0.45 + i * 0.24, 16);
       const ringMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
@@ -253,14 +425,15 @@ export class BoatTravelSystem {
 
     // 1. Idle water bobbing for docked boat
     if (!this.isTravelling) {
-      this.dockedBoatMesh.position.y = this.currentDockPos.y + Math.sin(time * 2.2) * 0.018;
-      this.dockedBoatMesh.rotation.z = Math.sin(time * 1.6) * 0.025;
-      this.dockedBoatMesh.rotation.x = Math.sin(time * 1.8) * 0.015;
+      this.dockedBoatMesh.position.y = this.currentBoatPos.y + Math.sin(time * 2.2) * 0.015;
+      this.dockedBoatMesh.rotation.z = Math.sin(time * 1.6) * 0.02;
+      this.dockedBoatMesh.rotation.x = Math.sin(time * 1.8) * 0.012;
 
-      // 2. Proximity check to player
+      // 2. Proximity check to player on dock walkway or boat
       if (isExploreMode) {
-        const dist = playerPos.distanceTo(this.currentDockPos);
-        if (dist < 2.8) {
+        const distToDock = playerPos.distanceTo(this.currentDockPos);
+        const distToBoat = playerPos.distanceTo(this.currentBoatPos);
+        if (distToDock < 2.5 || distToBoat < 2.5) {
           this.showPrompt();
         } else {
           this.hidePrompt();
@@ -285,12 +458,14 @@ export class BoatTravelSystem {
 
   /**
    * Executes the full cinematic 3D sailing animation.
+   * Handles disembarking safely onto the destination dock pier with authoritative terrain.
    */
   public executeTravelVoyage(
     destinationId: WorldDestinationId,
     destinationName: string,
     cameraCtrl: CameraController,
     character: CharacterController,
+    getDestinationTerrain: () => TerrainField,
     onDestinationReady: () => void,
     onComplete: () => void
   ): void {
@@ -304,32 +479,35 @@ export class BoatTravelSystem {
     this.wakeGroup.visible = true;
 
     // 2. Determine departure and arrival points
-    const startPos = this.currentDockPos.clone();
-    let destPos = new THREE.Vector3(0.85, 0.04, 2.3);
+    const startPos = this.currentBoatPos.clone();
+    let destBoatPos = new THREE.Vector3(1.85, 0.04, 2.45);
+    let destDisembark = new THREE.Vector3(0.866, 0.32, 2.4);
+
     if (destinationId === 'central_haat') {
-      destPos = new THREE.Vector3(0.0, 0.04, 3.4);
+      destBoatPos = new THREE.Vector3(2.70, 0.04, 3.85);
+      destDisembark = new THREE.Vector3(1.732, 0.32, 3.8);
     }
 
-    // Midpoint out in deep ocean waters
+    // Midpoint out in deep ocean waters for cinematic arc
     const midPos = new THREE.Vector3(
-      (startPos.x + destPos.x) * 0.5 + 4.5,
+      (startPos.x + destBoatPos.x) * 0.5 + 4.8,
       0.04,
-      (startPos.z + destPos.z) * 0.5 + 6.0
+      (startPos.z + destBoatPos.z) * 0.5 + 5.5
     );
 
     // Construct 3D sailing curve
     const curve = new THREE.CatmullRomCurve3([
       startPos,
-      new THREE.Vector3(startPos.x + 1.2, 0.04, startPos.z + 2.5),
+      new THREE.Vector3(startPos.x + 1.2, 0.04, startPos.z + 2.2),
       midPos,
-      new THREE.Vector3(destPos.x + 1.2, 0.04, destPos.z + 2.5),
-      destPos
+      new THREE.Vector3(destBoatPos.x + 1.2, 0.04, destBoatPos.z + 2.2),
+      destBoatPos
     ]);
 
-    // Position player on boat
+    // Position player safely inside the recessed passenger deck
     character.inputVector.set(0, 0);
     character.isMoving = false;
-    character.mesh.position.set(startPos.x, startPos.y + 0.12, startPos.z);
+    character.mesh.position.set(startPos.x, startPos.y + 0.08, startPos.z);
     character.rotationY = Math.atan2(midPos.x - startPos.x, midPos.z - startPos.z);
 
     // Show voyage HUD banner
@@ -344,10 +522,10 @@ export class BoatTravelSystem {
     this.voyageBannerEl.style.transform = 'translateX(-50%) translateY(0)';
 
     // Camera initial framing
-    const camOffset = new THREE.Vector3(-2.8, 1.8, -3.2);
+    const camOffset = new THREE.Vector3(-3.2, 2.0, -3.4);
     cameraCtrl.setCinematicTarget(startPos.clone().add(camOffset), startPos, true);
 
-    const voyageDuration = 4.0; // 4.0 seconds satisfying smooth journey
+    const voyageDuration = 4.0;
     const startTime = performance.now();
     let midpointTriggered = false;
 
@@ -370,17 +548,17 @@ export class BoatTravelSystem {
       this.travellingBoatMesh.rotation.y = targetYaw;
 
       // Ocean wave roll & pitch
-      const waveRoll = Math.sin(progress * 18) * 0.04;
-      const wavePitch = Math.sin(progress * 14) * 0.025;
+      const waveRoll = Math.sin(progress * 18) * 0.035;
+      const wavePitch = Math.sin(progress * 14) * 0.02;
       this.travellingBoatMesh.rotation.z = waveRoll;
       this.travellingBoatMesh.rotation.x = wavePitch;
 
-      // Character passenger positioning
-      character.mesh.position.set(pos.x, pos.y + 0.12, pos.z);
+      // Passenger footwell positioning (character stands securely on sunken deck)
+      character.mesh.position.set(pos.x, pos.y + 0.08, pos.z);
       character.rotationY = targetYaw;
 
       // Animate wake ripples trailing behind
-      const wakeOffset = tangent.clone().multiplyScalar(-0.9);
+      const wakeOffset = tangent.clone().multiplyScalar(-1.1);
       this.wakeGroup.position.copy(pos).add(wakeOffset);
       this.wakeRings.forEach((ring, idx) => {
         const ringScale = 1.0 + Math.sin(elapsed * 6 + idx) * 0.2;
@@ -389,14 +567,14 @@ export class BoatTravelSystem {
 
       // Smooth cinematic camera tracking
       const dynamicCamPos = pos.clone().add(new THREE.Vector3(
-        -Math.sin(targetYaw - 0.4) * 3.6,
-        1.7 + Math.sin(elapsed * 2) * 0.1,
-        -Math.cos(targetYaw - 0.4) * 3.6
+        -Math.sin(targetYaw - 0.4) * 3.8,
+        1.9 + Math.sin(elapsed * 2) * 0.1,
+        -Math.cos(targetYaw - 0.4) * 3.8
       ));
       const lookTarget = pos.clone().add(tangent.clone().multiplyScalar(1.5));
       cameraCtrl.setCinematicTarget(dynamicCamPos, lookTarget, false);
 
-      // Midpoint trigger: swap destination tiles & farms
+      // Midpoint trigger: swap destination tiles & farms & update dock
       if (progress >= 0.5 && !midpointTriggered) {
         midpointTriggered = true;
         onDestinationReady();
@@ -411,9 +589,15 @@ export class BoatTravelSystem {
         this.wakeGroup.visible = false;
         this.dockedBoatMesh.visible = true;
 
-        // Position character safely on the dock pier
-        character.setPosition(destPos.x, destPos.z + 0.4, null as any);
-        character.position.set(destPos.x, 0.28, destPos.z + 0.4);
+        // Position character safely on the dock pier with authoritative destination terrain
+        const destTerrain = getDestinationTerrain();
+        destTerrain.setDockArea(this.getDockAreaForLocation(destinationId));
+
+        character.setPosition(destDisembark.x, destDisembark.z, destTerrain);
+        character.position.set(destDisembark.x, destDisembark.y, destDisembark.z);
+        character.mesh.position.copy(character.position);
+        character.setVisible(true);
+        character.velocity.set(0, 0, 0);
 
         // Transition camera back to player explore mode
         cameraCtrl.switchToExplore(character);
@@ -433,5 +617,9 @@ export class BoatTravelSystem {
   public destroy(): void {
     this.promptEl.remove();
     this.voyageBannerEl.remove();
+    this.scene.remove(this.dockMesh);
+    this.scene.remove(this.dockedBoatMesh);
+    this.scene.remove(this.travellingBoatMesh);
+    this.scene.remove(this.wakeGroup);
   }
 }

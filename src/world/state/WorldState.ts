@@ -10,6 +10,7 @@ import { MultiplayerRoom } from '../multiplayer/MultiplayerRoom';
 import { FarmDetectionSystem, CompletedFarm } from '../farming/FarmDetectionSystem';
 import { WorldDestinationId } from '../travel/WorldMapSystem';
 import { ISLAND_CROPS, GAME_START_CONFIG, CoreTileType, CropType } from '../farming/CropConfig';
+import { SessionManager } from '../session/SessionManager';
 
 export interface WorldEvent {
   id: string;
@@ -86,7 +87,7 @@ export class WorldState {
     this.cropInventory = new CropInventorySystem(undefined, profile.startingResources.coins);
     this.coins = this.cropInventory.getCoins();
     this.alliances = new AllianceSystem();
-    this.multiplayer = new MultiplayerRoom(roomId, undefined, culture, isSinglePlayer, initialMembers);
+    this.multiplayer = new MultiplayerRoom(roomId, SessionManager.getPlayerName(), culture, isSinglePlayer, initialMembers);
 
     this.inventory = {
       grain: profile.startingResources.grain,
@@ -204,6 +205,13 @@ export class WorldState {
   public loadIsland(destId: WorldDestinationId): void {
     this.terrain.clear();
     this.registeredFarms.clear();
+
+    // Configure dedicated harbour dock collision bounds for this destination
+    this.terrain.setDockArea(
+      destId === 'central_haat'
+        ? { minX: 1.15, maxX: 2.30, minZ: 3.05, maxZ: 4.60, height: 0.32 }
+        : { minX: 0.30, maxX: 1.45, minZ: 1.55, maxZ: 3.10, height: 0.32 }
+    );
 
     const saved = this.islands.get(destId);
     if (saved && saved.tiles && saved.tiles.length > 0) {

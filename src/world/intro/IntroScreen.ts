@@ -1,6 +1,8 @@
 import { AmbientOverlay } from './AmbientOverlay';
 import { IntroMusic } from '../audio/IntroMusic';
 import { IslandHaatTitle } from './IslandHaatTitle';
+import { PlayerProfileModal } from '../menu/PlayerProfileModal';
+import { SessionManager } from '../session/SessionManager';
 
 export class IntroScreen {
   private container: HTMLElement;
@@ -196,6 +198,51 @@ export class IntroScreen {
     };
     uiLayer.appendChild(langBtn);
 
+    // Top-Right: Player Profile Pill
+    const profilePill = document.createElement('div');
+    profilePill.id = 'intro-player-profile-pill';
+    profilePill.style.cssText = `
+      position: absolute;
+      top: 24px; right: 28px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      border-radius: 20px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      pointer-events: auto;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 12px rgba(245, 158, 11, 0.2);
+      transition: all 0.2s ease;
+    `;
+    const renderProfileText = () => {
+      const name = SessionManager.getPlayerName();
+      profilePill.innerHTML = `<span>👤</span> <span style="color:#fef08a;">${name}</span> <span style="font-size:11px; color:#94a3b8; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:6px;">EDIT</span>`;
+    };
+    renderProfileText();
+
+    profilePill.onmouseenter = () => {
+      profilePill.style.transform = 'translateY(-2px)';
+      profilePill.style.borderColor = 'rgba(245, 158, 11, 0.9)';
+      this.music.playButtonHover();
+    };
+    profilePill.onmouseleave = () => {
+      profilePill.style.transform = 'translateY(0)';
+      profilePill.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+    };
+    profilePill.onclick = () => {
+      this.music.playButtonClick();
+      new PlayerProfileModal(this.root).show(() => {
+        renderProfileText();
+      });
+    };
+    uiLayer.appendChild(profilePill);
+
     // Version Badge on Loading / Intro Screen
     const introVersion = document.createElement('div');
     introVersion.id = 'intro-screen-version';
@@ -211,7 +258,7 @@ export class IntroScreen {
       align-items: center;
       gap: 6px;
     `;
-    introVersion.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> Island Haat v3.1.0 (Multiplayer Lobbies, Unique Culture Selection & 3D Sailing)`;
+    introVersion.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span> Island Haat v3.2.0 (Boat & Dock Geometry, Visiting Arrival, Session Resume & Player Profiles)`;
     uiLayer.appendChild(introVersion);
 
     // Bottom-Right: Social & Help Icons

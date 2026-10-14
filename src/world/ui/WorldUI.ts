@@ -11,6 +11,9 @@ import { WorldMapSystem, WorldMapDestination, WorldDestinationId } from '../trav
 import { ISLAND_CROPS, MARKET_PRICES, CropType, CORE_TILE_METADATA } from '../farming/CropConfig';
 import { CentralHaatSystem } from '../market/CentralHaatSystem';
 import { AllianceRecord } from '../alliance/AllianceSystem';
+import { SessionManager } from '../session/SessionManager';
+import { PlayerProfileModal } from '../menu/PlayerProfileModal';
+import { LobbyService } from '../multiplayer/LobbyService';
 
 export interface WorldUICallbacks {
   onTileSelect: (index: number) => void;
@@ -38,6 +41,7 @@ export class WorldUI {
   private clockTime!: HTMLElement;
   private cropBar!: HTMLElement;
   private alliancePill!: HTMLElement;
+  private profilePill!: HTMLElement;
   private worldMapBtn!: HTMLElement;
   private centralHaatBtn!: HTMLElement;
 
@@ -317,6 +321,28 @@ export class WorldUI {
     `;
     this.alliancePill.onclick = () => this.handleAlliancePillClick();
     topRight.appendChild(this.alliancePill);
+
+    // Player Profile / Rename Pill
+    this.profilePill = document.createElement('div');
+    this.profilePill.style.cssText = `
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      border-radius: 20px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: all 0.15s ease;
+    `;
+    this.updateProfilePill();
+    this.profilePill.onclick = () => this.showProfileModal();
+    topRight.appendChild(this.profilePill);
 
     // Day/Night Clock Widget
     this.clockWidget = document.createElement('div');
@@ -640,8 +666,9 @@ export class WorldUI {
       </div>
     `;
 
-    // 4. Alliance Pill Update
+    // 4. Alliance & Profile Pill Update
     this.updateAlliancePill();
+    this.updateProfilePill();
 
     // 5. Mode-specific HUD Visibility
     if (mode === 'explore') {
@@ -713,6 +740,21 @@ export class WorldUI {
         this.alliancePill.innerHTML = `<span>🤝</span> <span>Request Alliance</span>`;
       }
     }
+  }
+
+  public updateProfilePill(): void {
+    if (!this.profilePill) return;
+    const name = SessionManager.getPlayerName();
+    this.profilePill.innerHTML = `<span>👤</span> <span style="color:#fef08a;">${name}</span> <span style="font-size:9px; color:#94a3b8; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px;">EDIT</span>`;
+  }
+
+  public showProfileModal(): void {
+    new PlayerProfileModal().show((newName) => {
+      this.state.multiplayer.setLocalPlayerName(newName);
+      LobbyService.get().setPlayerName(newName);
+      this.updateProfilePill();
+      this.showFloatingReward(`Profile name updated: ${newName}`, window.innerWidth / 2, 120);
+    });
   }
 
   private handleAlliancePillClick(): void {

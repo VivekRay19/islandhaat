@@ -24,6 +24,7 @@ export type NetworkMessageType =
   | 'PLAYER_HEARTBEAT'
   | 'PLAYER_MOVE'
   | 'PLAYER_LEAVE'
+  | 'PLAYER_RENAME'
   | 'TILE_PLACED'
   | 'FARM_COMPLETED'
   | 'ALLIANCE_REQUEST'
@@ -278,6 +279,23 @@ export class MultiplayerRoom {
         break;
       }
 
+      case 'PLAYER_RENAME': {
+        const { playerId, newName } = msg.payload;
+        const peer = this.remotePlayers.get(playerId);
+        if (peer) {
+          peer.playerName = newName;
+          if (peer.homeIsland) {
+            this.islandOwners.set(peer.homeIsland, {
+              playerId,
+              playerName: newName
+            });
+            this.onIslandOwnershipChanged?.(this.islandOwners);
+          }
+          this.onRemotePlayerUpdate?.(Array.from(this.remotePlayers.values()));
+        }
+        break;
+      }
+
       case 'TILE_PLACED': {
         const { island, tile } = msg.payload;
         if (island && tile) {
@@ -446,6 +464,22 @@ export class MultiplayerRoom {
 
   public notifyAllianceExpired(allianceId: string): void {
     this.broadcastMessage('ALLIANCE_EXPIRED', { allianceId });
+  }
+
+  public setLocalPlayerName(newName: string): void {
+    this.localPlayerName = newName;
+    const myOwner = this.islandOwners.get(this.localHomeIsland);
+    if (myOwner) {
+      myOwner.playerName = newName;
+      this.onIslandOwnershipChanged?.(this.islandOwners);
+    }
+    if (!this.isSinglePlayer) {
+      this.broadcastMessage('PLAYER_RENAME', {
+        playerId: this.localPlayerId,
+        newName
+      });
+      this.sendHeartbeat('PLAYER_HEARTBEAT');
+    }
   }
 
   public updateCurrentLocation(newLoc: WorldDestinationId): void {

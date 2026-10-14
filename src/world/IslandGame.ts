@@ -22,6 +22,7 @@ import { NetworkedPlayer } from './multiplayer/NetworkedPlayer';
 import { RemotePlayerState } from './multiplayer/MultiplayerRoom';
 import { ServerRoom } from './multiplayer/MultiplayerTypes';
 import { ISLAND_CROPS } from './farming/CropConfig';
+import { SessionManager } from './session/SessionManager';
 
 export class IslandGame {
   private scene: THREE.Scene;
@@ -110,6 +111,7 @@ export class IslandGame {
 
     this.boatTravel = new BoatTravelSystem(this.scene);
     this.boatTravel.setDockForLocation(this.state.currentLocation);
+    this.state.terrain.setDockArea(this.boatTravel.getDockAreaForLocation(this.state.currentLocation));
     this.boatTravel.onOpenSailingMap = () => {
       this.ui.showWorldMapModal();
     };
@@ -360,9 +362,11 @@ export class IslandGame {
       destName,
       this.cameraCtrl,
       this.character,
+      () => this.state.terrain,
       () => {
         // Mid-voyage: Switch world state destination & reload terrain
         this.state.switchDestination(destId);
+        this.state.terrain.setDockArea(this.boatTravel.getDockAreaForLocation(destId));
         this.rebuildAllTileMeshes();
         this.rebuildFarmOutlines();
         this.boatTravel.setDockForLocation(destId);
@@ -373,6 +377,7 @@ export class IslandGame {
       () => {
         this.state.multiplayer.broadcastTravelState('arrived', fromLoc, destId);
         this.ui.showFloatingReward(`Sailed safely to ${destName}!`, window.innerWidth / 2, 120);
+        SessionManager.updateLocation(destId);
       }
     );
   }

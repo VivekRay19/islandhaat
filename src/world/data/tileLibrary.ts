@@ -87,6 +87,20 @@ export const TILE_LIBRARY: Record<string, TileDef> = {
     description: 'A lonely rock with something shiny on it.',
     hidden: true
   },
+
+  // =========================================================================
+  // THE SIX CORE TILE TYPES (Gameplay & Matching System)
+  // =========================================================================
+  farmland: {
+    id: 'farmland',
+    name: 'Farmland',
+    edges: T(['field', 'field', 'field', 'field', 'field', 'field']),
+    culturalTags: ['agriculture', 'food'],
+    rarity: 'common',
+    unlockLevel: 1,
+    weight: 2.0,
+    description: 'Tilled fertile field. Connect 3 Farmland tiles to establish a working farm!'
+  },
   meadow: {
     id: 'meadow',
     name: 'Meadow',
@@ -94,8 +108,49 @@ export const TILE_LIBRARY: Record<string, TileDef> = {
     culturalTags: ['nature'],
     rarity: 'common',
     unlockLevel: 1,
-    weight: 2,
+    weight: 2.0,
     description: 'Open grassland with wildflowers.'
+  },
+  forest: {
+    id: 'forest',
+    name: 'Forest',
+    edges: T(['forest', 'forest', 'forest', 'forest', 'forest', 'forest']),
+    produces: { resource: 'wood', amount: 1, every: 16 },
+    culturalTags: ['nature'],
+    rarity: 'common',
+    unlockLevel: 1,
+    weight: 2.0,
+    description: 'Dense trees — joins neighbouring forests into one woodland.'
+  },
+  mountain: {
+    id: 'mountain',
+    name: 'Mountain',
+    edges: T(['stone', 'stone', 'stone', 'stone', 'stone', 'stone']),
+    culturalTags: ['nature', 'stone'],
+    rarity: 'common',
+    unlockLevel: 1,
+    weight: 2.0,
+    description: 'Rocky elevation and rugged stone peaks.'
+  },
+  water: {
+    id: 'water',
+    name: 'Water',
+    edges: T(['water', 'water', 'water', 'water', 'water', 'water']),
+    culturalTags: ['water', 'nature'],
+    rarity: 'common',
+    unlockLevel: 1,
+    weight: 2.0,
+    description: 'Tranquil freshwater river pools and springs.'
+  },
+  coastal: {
+    id: 'coastal',
+    name: 'Coastal',
+    edges: T(['water', 'water', 'water', 'grass', 'grass', 'grass']),
+    culturalTags: ['water', 'nature', 'coast'],
+    rarity: 'common',
+    unlockLevel: 1,
+    weight: 2.0,
+    description: 'Sandy beach shoreline with gentle foaming surf.'
   },
   grove: {
     id: 'grove',
@@ -107,17 +162,6 @@ export const TILE_LIBRARY: Record<string, TileDef> = {
     unlockLevel: 1,
     weight: 2.6,
     description: 'Half woodland, half meadow.'
-  },
-  forest: {
-    id: 'forest',
-    name: 'Forest',
-    edges: T(['forest', 'forest', 'forest', 'forest', 'forest', 'forest']),
-    produces: { resource: 'wood', amount: 1, every: 16 },
-    culturalTags: ['nature'],
-    rarity: 'common',
-    unlockLevel: 1,
-    weight: 1.6,
-    description: 'Dense trees — joins neighbouring forests into one woodland.'
   },
   farm: {
     id: 'farm',

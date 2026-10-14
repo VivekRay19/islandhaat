@@ -27,10 +27,14 @@ export class TileMeshBuilder {
     // Layer A: Top Cap (Culture-specific ground terrain or tilled soil or stone)
     const topGeo = new THREE.CylinderGeometry(HEX_R, HEX_R * 1.02, 0.14, 6);
     let topMat = mats.getTerrainMaterial(culture);
-    if (def.id === 'hill' || def.id === 'quarry') {
+    if (def.id === 'hill' || def.id === 'quarry' || def.id === 'mountain') {
       topMat = mats.getCliffMaterial(culture);
-    } else if (def.id === 'farm' || def.id === 'fields') {
+    } else if (def.id === 'farm' || def.id === 'fields' || def.id === 'farmland') {
       topMat = mats.field;
+    } else if (def.id === 'coastal') {
+      topMat = mats.sand;
+    } else if (def.id === 'water') {
+      topMat = mats.water;
     }
     const topMesh = new THREE.Mesh(topGeo, topMat);
     topMesh.position.y = TILE_TOP - 0.07;
@@ -58,10 +62,85 @@ export class TileMeshBuilder {
     // --- 2. TERRAIN FEATURES ON THE TILE ---
     const content = new THREE.Group();
 
-    // Water Channels / Streams
+    // FARMLAND: Tilled furrow ridges and crop seedlings
+    if (def.id === 'farmland' || def.id === 'fields') {
+      const furrowMat = mats.darkSoil;
+      const cropMat = mats.thatch;
+      for (let i = -2; i <= 2; i++) {
+        const furrowGeo = new THREE.BoxGeometry(0.7 - Math.abs(i) * 0.12, 0.03, 0.08);
+        const furrow = new THREE.Mesh(furrowGeo, furrowMat);
+        furrow.position.set(0, TILE_TOP + 0.015, i * 0.18);
+        furrow.castShadow = true;
+        content.add(furrow);
+
+        // Crop seedlings along the ridge
+        const stalkCount = 4 - Math.abs(i);
+        for (let s = 0; s < stalkCount; s++) {
+          const stalkGeo = new THREE.ConeGeometry(0.025, 0.08, 4);
+          const stalk = new THREE.Mesh(stalkGeo, cropMat);
+          const sx = (s - (stalkCount - 1) / 2) * 0.16;
+          stalk.position.set(sx, TILE_TOP + 0.05, i * 0.18);
+          content.add(stalk);
+        }
+      }
+    }
+
+    // MOUNTAIN: Rugged rocky peaks and stone boulders
+    if (def.id === 'mountain' || def.id === 'hill') {
+      const peakMat = mats.getCliffMaterial(culture);
+      const mainPeak = new THREE.Mesh(new THREE.ConeGeometry(0.48, 0.65, 6), peakMat);
+      mainPeak.position.set(0, TILE_TOP + 0.30, 0);
+      mainPeak.castShadow = true;
+      content.add(mainPeak);
+
+      const subPeak1 = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.42, 5), peakMat);
+      subPeak1.position.set(-0.25, TILE_TOP + 0.18, 0.18);
+      subPeak1.castShadow = true;
+      content.add(subPeak1);
+
+      const subPeak2 = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.34, 5), peakMat);
+      subPeak2.position.set(0.24, TILE_TOP + 0.14, -0.20);
+      subPeak2.castShadow = true;
+      content.add(subPeak2);
+    }
+
+    // COASTAL: Sandy shoreline with foaming surf
+    if (def.id === 'coastal') {
+      const waterSurf = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.58, 0.06, 6), mats.water);
+      waterSurf.position.set(0, TILE_TOP + 0.01, 0.22);
+      content.add(waterSurf);
+
+      const foamLine = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.02, 0.08), mats.waterFoam);
+      foamLine.position.set(0, TILE_TOP + 0.02, 0.05);
+      content.add(foamLine);
+
+      // Coastal pebble stones
+      const pebbleGeo = new THREE.DodecahedronGeometry(0.04);
+      const pebble1 = new THREE.Mesh(pebbleGeo, mats.stone);
+      pebble1.position.set(-0.22, TILE_TOP + 0.02, -0.15);
+      content.add(pebble1);
+      const pebble2 = new THREE.Mesh(pebbleGeo, mats.stone);
+      pebble2.position.set(0.28, TILE_TOP + 0.02, -0.10);
+      content.add(pebble2);
+    }
+
+    // WATER TILE: Deep tranquil water surface
+    if (def.id === 'water') {
+      const waterPlinth = new THREE.Mesh(new THREE.CylinderGeometry(HEX_R * 0.95, HEX_R * 0.96, 0.08, 6), mats.water);
+      waterPlinth.position.y = TILE_TOP + 0.01;
+      content.add(waterPlinth);
+
+      // Water lily pad
+      const lilyGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.01, 8);
+      const lily = new THREE.Mesh(lilyGeo, mats.treeFoliageA);
+      lily.position.set(0.12, TILE_TOP + 0.02, -0.14);
+      content.add(lily);
+    }
+
+    // Water Channels / Streams (For river / stream tiles)
     const waterEdges: number[] = [];
     def.edges.forEach((edge, idx) => {
-      if (edge === 'water') waterEdges.push(idx);
+      if (edge === 'water' && def.id !== 'water' && def.id !== 'coastal') waterEdges.push(idx);
     });
 
     if (waterEdges.length > 0) {
@@ -111,20 +190,9 @@ export class TileMeshBuilder {
       }
     }
 
-    // Hill / Rocky Outcrops (Culture-specific rocks)
-    if (def.id === 'hill') {
-      const rock1 = CulturalVegetationBuilder.createLandscapeProp(culture, 1);
-      rock1.position.set(-0.06, TILE_TOP + 0.10, 0.04);
-      content.add(rock1);
-
-      const rock2 = CulturalVegetationBuilder.createLandscapeProp(culture, 2);
-      rock2.position.set(0.24, TILE_TOP + 0.06, -0.16);
-      content.add(rock2);
-    }
-
-    // Wildflowers & Cultural Landscape Props
-    if (def.id === 'meadow' || def.id === 'start' || def.id === 'forest') {
-      const count = def.id === 'meadow' ? 4 : 2;
+    // Wildflowers & Cultural Landscape Props (Meadow)
+    if (def.id === 'meadow') {
+      const count = 5;
       for (let i = 0; i < count; i++) {
         const prop = CulturalVegetationBuilder.createLandscapeProp(culture, i);
         const ang = (i * Math.PI * 2) / count + 0.5;

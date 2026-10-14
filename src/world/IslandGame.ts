@@ -16,6 +16,12 @@ import { HEX_R, SQRT3, parseKey, hexKey } from './hex/Hex';
 import { EnvironmentModels } from './graphics/EnvironmentModels';
 import { TILE_LIBRARY } from './data/tileLibrary';
 import { IndianState } from './culture/CultureTypes';
+import { BoatTravelSystem } from './travel/BoatTravelSystem';
+import { WorldDestinationId } from './travel/WorldMapSystem';
+import { FarmDetectionSystem } from './farming/FarmDetectionSystem';
+import { NetworkedPlayer } from './multiplayer/NetworkedPlayer';
+import { RemotePlayerState } from './multiplayer/MultiplayerRoom';
+import { ISLAND_CROPS } from './farming/CropConfig';
 
 export class IslandGame {
   private scene: THREE.Scene;
@@ -32,6 +38,11 @@ export class IslandGame {
   private interactions: InteractionSystem;
   private audio: WorldAudio;
   private ui: WorldUI;
+
+  // Travel & Multiplayer & Farming systems
+  private boatTravel: BoatTravelSystem;
+  private farmOutlineMeshes: Map<string, THREE.Group> = new Map();
+  private remotePlayers: Map<string, NetworkedPlayer> = new Map();
 
   // Render objects
   private tileMeshes: Map<string, THREE.Group> = new Map();
@@ -94,6 +105,7 @@ export class IslandGame {
     this.tuningPanel = new AnimationTuningPanel(this.character);
     this.tuningPanel.setVisible(false); // Hidden during Build Mode initially
 
+    this.boatTravel = new BoatTravelSystem(this.scene);
     this.scene.add(this.slotMarkers);
 
     // 3. UI
@@ -110,25 +122,54 @@ export class IslandGame {
         this.audio.playTileRotate();
         this.updateGhost();
       },
-      onModeToggle: () => this.toggleGameMode()
+      onModeToggle: () => this.toggleGameMode(),
+      onTravel: (destId, destName) => this.travelToDestination(destId, destName),
+      onRequestAlliance: () => this.ui.requestAllianceOnCurrentIsland()
     });
 
-    // 4. Initial World Generation & Chest Setup
+    // 4. Multiplayer Event Wiring
+    this.state.multiplayer.onRemotePlayerUpdate = (players) => this.handleRemotePlayerUpdate(players);
+    this.state.multiplayer.onRemoteTilePlaced = (island, tile) => {
+      if (island === this.state.currentLocation) {
+        this.rebuildPlacedTileMesh(tile, true);
+        this.updateAvailableSlotMarkers();
+      }
+    };
+    this.state.multiplayer.onRemoteFarmCompleted = (island, _farm) => {
+      if (island === this.state.currentLocation) {
+        this.rebuildFarmOutlines();
+      }
+    };
+    this.state.multiplayer.onAllianceRequestReceived = (alliance) => {
+      this.ui.showHostAllianceRequestModal(alliance);
+    };
+    this.state.multiplayer.onAllianceAcceptedReceived = (_allianceId, _expiresAt) => {
+      this.ui.showFloatingReward('🤝 Alliance Accepted! 180s Building Rights Active.', window.innerWidth / 2, 120);
+    };
+
+    // 5. Initial World Generation & Chest Setup
     this.rebuildAllTileMeshes();
+    this.rebuildFarmOutlines();
     this.setupTreasureChest();
     this.updateAvailableSlotMarkers();
     this.ui.renderHand();
 
-    // 5. Event Listeners
+    // 6. Event Listeners
     this.bindEvents();
 
-    // 6. Start Loop
+    // 7. Start Loop
     this.animate();
   }
 
   private setupTreasureChest(): void {
-    // Ground chest accurately on the cultural islet tile
-    const isletTile = this.state.terrain.getAllTiles().find(t => t.defId === 'islet');
+    if (this.chestGroup) {
+      this.scene.remove(this.chestGroup);
+      this.chestGroup = null;
+      this.chestLid = null;
+    }
+
+    // Ground chest on islet tile if available
+    const isletTile = this.state.terrain.getAllTiles().find((t) => t.defId === 'islet');
     if (isletTile) {
       const cx = SQRT3 * HEX_R * (isletTile.q + isletTile.r / 2);
       const cz = 1.5 * HEX_R * isletTile.r;
@@ -146,8 +187,7 @@ export class IslandGame {
   }
 
   private rebuildAllTileMeshes(): void {
-    // Clear old meshes
-    this.tileMeshes.forEach(mesh => this.scene.remove(mesh));
+    this.tileMeshes.forEach((mesh) => this.scene.remove(mesh));
     this.tileMeshes.clear();
 
     const tiles = this.state.terrain.getAllTiles();
@@ -165,12 +205,12 @@ export class IslandGame {
     const fullDef = TILE_LIBRARY[tile.defId];
     if (!fullDef) return;
 
-    const mesh = TileMeshBuilder.buildTileMesh(fullDef, tile.rotation, tile.isDamaged, this.state.selectedCulture);
+    const currentIsland = this.state.currentLocation === 'central_haat' ? this.state.selectedCulture : (this.state.currentLocation as IndianState);
+    const mesh = TileMeshBuilder.buildTileMesh(fullDef, tile.rotation, tile.isDamaged, currentIsland);
     const cx = SQRT3 * HEX_R * (tile.q + tile.r / 2);
     const cz = 1.5 * HEX_R * tile.r;
 
     if (animateIn) {
-      // Settle down animation with soft impact
       mesh.position.set(cx, 1.2, cz);
       this.tweens.add({
         duration: 0.35,
@@ -186,13 +226,27 @@ export class IslandGame {
     this.tileMeshes.set(tile.key, mesh);
   }
 
+  public rebuildFarmOutlines(): void {
+    this.farmOutlineMeshes.forEach((mesh) => this.scene.remove(mesh));
+    this.farmOutlineMeshes.clear();
+
+    for (const [farmId, farm] of this.state.registeredFarms.entries()) {
+      const outline = FarmDetectionSystem.buildUnifiedFarmOutline(farm.tiles);
+      this.scene.add(outline);
+      this.farmOutlineMeshes.set(farmId, outline);
+    }
+  }
+
   private updateAvailableSlotMarkers(): void {
-    // Cleanly remove existing slot markers
     while (this.slotMarkers.children.length > 0) {
       this.slotMarkers.remove(this.slotMarkers.children[0]);
     }
 
     if (this.cameraCtrl.mode !== 'build') return;
+
+    // Do not show build slots if building is disallowed here
+    const perm = this.state.canPlaceAtCurrentLocation();
+    if (!perm.allowed) return;
 
     const slots = this.state.getAvailableSlots();
     const mats = this.materials;
@@ -201,7 +255,6 @@ export class IslandGame {
       const cx = SQRT3 * HEX_R * (slot.q + slot.r / 2);
       const cz = 1.5 * HEX_R * slot.r;
 
-      // Reuse pre-instantiated sharedSlotGeo
       const slotMesh = new THREE.Mesh(this.sharedSlotGeo, mats.slotValid);
       slotMesh.position.set(cx, 0.12, cz);
       slotMesh.userData = { q: slot.q, r: slot.r, isSlot: true };
@@ -220,16 +273,14 @@ export class IslandGame {
     const def = this.state.getSelectedTile();
     if (!def) return;
 
-    this.ghostMesh = TileMeshBuilder.buildGhostMesh(def, this.state.currentRotation, this.state.selectedCulture);
+    const currentIsland = this.state.currentLocation === 'central_haat' ? this.state.selectedCulture : (this.state.currentLocation as IndianState);
+    this.ghostMesh = TileMeshBuilder.buildGhostMesh(def, this.state.currentRotation, currentIsland);
     const cx = SQRT3 * HEX_R * (this.hoveredSlot.q + this.hoveredSlot.r / 2);
     const cz = 1.5 * HEX_R * this.hoveredSlot.r;
     this.ghostMesh.position.set(cx, 0.08, cz);
     this.scene.add(this.ghostMesh);
   }
 
-  /**
-   * Mode transitions are strictly button-driven only (via Enter Island / Exit Character buttons)
-   */
   public toggleGameMode(): void {
     if (this.cameraCtrl.mode === 'build') {
       this.cameraCtrl.switchToExplore(this.character);
@@ -258,6 +309,12 @@ export class IslandGame {
   }
 
   private handleSlotClick(q: number, r: number): void {
+    const perm = this.state.canPlaceAtCurrentLocation();
+    if (!perm.allowed) {
+      this.ui.showFloatingReward(perm.reason || 'Placement not allowed', window.innerWidth / 2, window.innerHeight / 2);
+      return;
+    }
+
     const res = this.state.placeTile(q, r);
     if (!res) return;
 
@@ -271,8 +328,78 @@ export class IslandGame {
     this.updateAvailableSlotMarkers();
     this.ui.renderHand();
 
-    // Floating reward
+    // Check newly formed farms & render 3D unified outlines
+    if (res.newFarms && res.newFarms.length > 0) {
+      for (const farm of res.newFarms) {
+        const outline = FarmDetectionSystem.buildUnifiedFarmOutline(farm.tiles);
+        this.scene.add(outline);
+        this.farmOutlineMeshes.set(farm.id, outline);
+      }
+      this.audio.playLevelUp();
+
+      const currentIsland = this.state.currentLocation === 'central_haat' ? this.state.selectedCulture : (this.state.currentLocation as IndianState);
+      const cropInfo = ISLAND_CROPS[currentIsland] || ISLAND_CROPS['bihar'];
+      this.ui.showFarmCompletedBanner(cropInfo.displayName, cropInfo.emoji);
+    }
+
+    // Floating coin reward
     this.ui.showFloatingReward(`+${res.coinsEarned} Coins`, window.innerWidth / 2, window.innerHeight / 2);
+  }
+
+  public travelToDestination(destId: WorldDestinationId, destName: string): void {
+    this.boatTravel.executeTravelVoyage(
+      destId,
+      destName,
+      this.cameraCtrl,
+      this.character,
+      () => {
+        // Mid-voyage: Switch world state destination & reload terrain
+        this.state.switchDestination(destId);
+        this.rebuildAllTileMeshes();
+        this.rebuildFarmOutlines();
+        this.character.setPosition(0, 1.5, this.state.terrain);
+        this.setupTreasureChest();
+        this.updateAvailableSlotMarkers();
+        this.ui.renderHand();
+      },
+      () => {
+        this.ui.showFloatingReward(`Sailed safely to ${destName}!`, window.innerWidth / 2, 120);
+      }
+    );
+  }
+
+  private handleRemotePlayerUpdate(remoteStates: RemotePlayerState[]): void {
+    const currentPeerIds = new Set<string>();
+
+    for (const p of remoteStates) {
+      if (p.playerId === this.state.multiplayer.localPlayerId) continue;
+
+      // Only display peers who are currently on the same island/destination
+      if (p.currentLocation !== this.state.currentLocation) {
+        const existing = this.remotePlayers.get(p.playerId);
+        if (existing) {
+          existing.destroy(this.scene);
+          this.remotePlayers.delete(p.playerId);
+        }
+        continue;
+      }
+
+      currentPeerIds.add(p.playerId);
+      let netPlayer = this.remotePlayers.get(p.playerId);
+      if (!netPlayer) {
+        netPlayer = new NetworkedPlayer(this.scene, p);
+        this.remotePlayers.set(p.playerId, netPlayer);
+      } else {
+        netPlayer.updateTarget(p);
+      }
+    }
+
+    for (const [id, player] of this.remotePlayers.entries()) {
+      if (!currentPeerIds.has(id)) {
+        player.destroy(this.scene);
+        this.remotePlayers.delete(id);
+      }
+    }
   }
 
   private handleInteract(target: InteractableTarget): void {
@@ -286,11 +413,12 @@ export class IslandGame {
             this.chestLid!.rotation.x = THREE.MathUtils.lerp(0, -Math.PI * 0.65, k);
           }
         });
-        this.state.coins += 50;
+        this.state.cropInventory.addCoins(50);
+        this.state.coins = this.state.cropInventory.getCoins();
         this.ui.showFloatingReward(`+50 Coins! (Treasure)`, window.innerWidth / 2, window.innerHeight / 2);
       }
     } else if (target.type === 'haat') {
-      this.ui.showHaatTradeModal(() => {});
+      this.ui.showCentralHaatModal();
     } else if (target.type === 'fire') {
       this.audio.playWaterSplash();
       this.state.resolveActiveEvent();
@@ -301,12 +429,16 @@ export class IslandGame {
       this.ui.showFloatingReward(`Fire Extinguished! +40 Coins`, window.innerWidth / 2, window.innerHeight / 2);
     } else if (target.type === 'farmhouse') {
       this.audio.playHarvest();
-      this.state.inventory.grain += 2;
-      this.state.coins += 15;
-      this.ui.showFloatingReward(`+2 Grain Harvested!`, window.innerWidth / 2, window.innerHeight / 2);
+      const currentIsland = this.state.currentLocation === 'central_haat' ? this.state.selectedCulture : (this.state.currentLocation as IndianState);
+      const cropInfo = ISLAND_CROPS[currentIsland] || ISLAND_CROPS['bihar'];
+      this.state.cropInventory.addHarvestedCrops(cropInfo.crop, 1);
+      this.state.cropInventory.addCoins(10);
+      this.state.coins = this.state.cropInventory.getCoins();
+      this.ui.showFloatingReward(`+1 ${cropInfo.displayName} Harvested!`, window.innerWidth / 2, window.innerHeight / 2);
     } else {
       this.audio.playHarvest();
-      this.state.coins += 10;
+      this.state.cropInventory.addCoins(10);
+      this.state.coins = this.state.cropInventory.getCoins();
       this.ui.showFloatingReward(`Interacted! +10 Coins`, window.innerWidth / 2, window.innerHeight / 2);
     }
   }
@@ -327,7 +459,6 @@ export class IslandGame {
       this.isMouseDown = false;
     });
 
-    // Mouse move & raycast
     addEvt(window, 'mousemove', (e: Event) => {
       const me = e as MouseEvent;
       this.mouse.x = (me.clientX / window.innerWidth) * 2 - 1;
@@ -350,7 +481,6 @@ export class IslandGame {
 
     addEvt(window, 'mousedown', (e: Event) => {
       const me = e as MouseEvent;
-      // If modal is active, do not interact with 3D scene
       if (this.ui.activeModal !== 'none') return;
 
       this.isMouseDown = true;
@@ -381,23 +511,22 @@ export class IslandGame {
       }
     });
 
-    // Keyboard controls
     addEvt(window, 'keydown', (e: Event) => {
       const ke = e as KeyboardEvent;
 
-      // When text inputs or modals are focused, do not trigger gameplay actions
       const targetTag = (ke.target as HTMLElement)?.tagName?.toLowerCase();
       if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select') {
         return;
       }
       if (this.ui.activeModal !== 'none') {
         if (ke.code === 'Escape') {
-          // Allow closing active modals via Escape
           const closeDiag = document.getElementById('close-ingame-diag-btn');
           const closeTime = document.getElementById('close-time-modal-btn');
-          const closeHaat = document.getElementById('close-haat-btn');
+          const closeMap = document.getElementById('close-world-map-btn');
+          const closeHaat = document.getElementById('close-central-haat-btn');
           if (closeDiag) closeDiag.click();
           if (closeTime) closeTime.click();
+          if (closeMap) closeMap.click();
           if (closeHaat) closeHaat.click();
         }
         return;
@@ -405,27 +534,23 @@ export class IslandGame {
 
       this.keys[ke.code] = true;
 
-      // Build Mode Specific Keys
       if (this.cameraCtrl.mode === 'build') {
         if (ke.code === 'KeyR') {
           this.state.rotateCurrentTile();
           this.audio.playTileRotate();
           this.updateGhost();
         }
-        // Spacebar must NEVER switch modes or trigger anything in Build Mode
         if (ke.code === 'Space') {
           ke.preventDefault();
         }
       }
 
-      // Explore Mode Specific Keys
       if (this.cameraCtrl.mode === 'explore') {
         if (ke.code === 'KeyE') {
           const activeTarget = this.interactions.getActiveTarget();
           if (activeTarget) this.handleInteract(activeTarget);
         }
 
-        // Spacebar strictly triggers Jump in Explore Mode
         if (ke.code === 'Space') {
           ke.preventDefault();
           if (!ke.repeat) {
@@ -463,12 +588,11 @@ export class IslandGame {
     if (!this.isRunning) return;
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Pause rendering updates when the browser tab is hidden
     if (document.hidden) return;
 
     const dt = Math.min(this.clock.getDelta(), 0.1);
 
-    // 1. Process Input Vector (Only active in Explore Mode without modal)
+    // 1. Process Input Vector
     let ix = 0;
     let iy = 0;
     if (this.cameraCtrl.mode === 'explore' && this.ui.activeModal === 'none') {
@@ -494,18 +618,31 @@ export class IslandGame {
     this.dayNight.update(dt);
     if (this.cameraCtrl.mode === 'explore') {
       this.character.update(dt, this.cameraCtrl.exploreYaw, this.state.terrain);
+
+      // Broadcast local movement to multiplayer peers
+      this.state.multiplayer.sendMovement(
+        this.character.position.x,
+        this.character.position.y,
+        this.character.position.z,
+        this.character.rotationY,
+        this.character.isMoving
+      );
     }
     this.cameraCtrl.update(dt, this.character);
 
+    // Update remote players
+    this.remotePlayers.forEach((p) => p.update(dt));
+
     // 4. Update Proximity Interactions
-    const target = this.cameraCtrl.mode === 'explore'
-      ? this.interactions.findNearestInteractable(
-          this.character,
-          this.state.terrain.getAllTiles(),
-          this.chestPos,
-          this.state.activeEvent?.targetTileKey
-        )
-      : null;
+    const target =
+      this.cameraCtrl.mode === 'explore'
+        ? this.interactions.findNearestInteractable(
+            this.character,
+            this.state.terrain.getAllTiles(),
+            this.chestPos,
+            this.state.activeEvent?.targetTileKey
+          )
+        : null;
 
     // 5. Update UI
     this.ui.update(this.cameraCtrl.mode, target);
@@ -521,17 +658,20 @@ export class IslandGame {
       this.animFrameId = null;
     }
 
-    // Remove window event listeners
-    this.eventRemovers.forEach(fn => fn());
+    this.eventRemovers.forEach((fn) => fn());
     this.eventRemovers = [];
 
-    // Dispose shared slot geometry
     this.sharedSlotGeo.dispose();
-
-    // Destroy UI
     this.ui.destroy();
 
-    // Dispose renderer
+    this.remotePlayers.forEach((p) => p.destroy(this.scene));
+    this.remotePlayers.clear();
+
+    this.farmOutlineMeshes.forEach((m) => this.scene.remove(m));
+    this.farmOutlineMeshes.clear();
+
+    this.state.multiplayer.destroy();
+
     this.renderer.dispose();
     if (this.renderer.domElement && this.renderer.domElement.parentElement) {
       this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
